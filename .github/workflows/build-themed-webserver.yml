@@ -1,0 +1,48 @@
+name: Build themed dagster-webserver wheel
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out hillpointe-theme
+        uses: actions/checkout@v4
+        with:
+          ref: hillpointe-theme
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Enable corepack (yarn)
+        run: corepack enable
+
+      - name: Build production JS bundle
+        run: bash python_modules/dagster-webserver/build_js.sh
+
+      - name: Install build tool
+        run: pip install build
+
+      - name: Build dagster-webserver wheel
+        run: python -m build --wheel python_modules/dagster-webserver
+
+      - name: Publish wheel to a release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete hillpointe-theme-latest --yes || true
+          gh release create hillpointe-theme-latest \
+            python_modules/dagster-webserver/dist/*.whl \
+            --title "Hillpointe-themed dagster-webserver" \
+            --notes "Auto-built from the hillpointe-theme branch (based on Dagster 1.13.22). Overwritten on every run."

@@ -8,6 +8,9 @@
 @import '../fonts/GlobalGeist.css';
 @import '../fonts/GlobalGeistMono.css';
 @import '../theme/GlobalThemeStyle.css';
+/* Hillpointe brand tokens. Must stay after GlobalThemeStyle.css -- it overrides
+   those variables and relies on source order to win the cascade. */
+@import '../theme/HillpointeTheme.css';
 @import '../components/css/GlobalDialogStyle.css';
 @import '../components/css/GlobalPopoverStyle.css';
 @import '../components/css/GlobalSuggestStyle.css';

@@ -1,6 +1,8 @@
 name: Build themed dagster-webserver wheel
 
 on:
+  push:
+    branches: [hillpointe-theme]
   workflow_dispatch: {}
 
 permissions:

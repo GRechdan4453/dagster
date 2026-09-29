@@ -291,6 +291,9 @@ const BackgroundColorForStates = {
   [IStepState.UNKNOWN]: Colors.accentGrayHover(),
 };
 
+// Hillpointe: soft top-light / bottom-shade layered over the status colour
+const BOX_SHADING = 'linear-gradient(180deg, rgb(255 255 255 / 0.25), rgb(0 0 0 / 0.15))';
+
 export const boxStyleFor = (
   state: IStepState | undefined,
   context: {
@@ -310,7 +313,7 @@ export const boxStyleFor = (
   if (state && state !== IStepState.PREPARING) {
     return {
       color: TextColorForStates[state] || Colors.accentReversed(),
-      background: BackgroundColorForStates[state] || Colors.backgroundLight(),
+      background: `${BOX_SHADING}, ${BackgroundColorForStates[state] || Colors.backgroundLight()}`,
     };
   }
 

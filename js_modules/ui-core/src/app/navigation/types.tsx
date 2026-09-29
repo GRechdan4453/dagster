@@ -14,5 +14,6 @@ export type NavigationItem = {
 
 export type NavigationGroup = {
   key: string;
+  title?: string;
   items: (NavigationItem | null)[];
 };

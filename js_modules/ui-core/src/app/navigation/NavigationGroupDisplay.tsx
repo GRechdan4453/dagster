@@ -23,6 +23,9 @@ export const NavigationGroupDisplay = (props: Props) => {
           padding={{vertical: 4}}
           className={styles.group}
         >
+          {group.title && !collapsed ? (
+            <div className={styles.groupTitle}>{group.title}</div>
+          ) : null}
           {group.items
             .filter((item): item is NavigationItem => !!item)
             .map((item) => (

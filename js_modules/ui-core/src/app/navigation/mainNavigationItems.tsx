@@ -17,6 +17,7 @@ import {JobStateForNav} from '../AppTopNav/useJobStateForNav';
 import {HelpMenuContents} from '../HelpMenu';
 import {NavCollapseContext} from './NavCollapseProvider';
 import {NavItemContent} from './NavItemContent';
+import {NavItemWithExternalLink} from './NavItemWithExternalLink';
 import {NavItemWithLink} from './NavItemWithLink';
 import {NavigationGroup} from './types';
 import {UserSettingsDialog} from '../UserSettingsDialog/UserSettingsDialog';
@@ -175,6 +176,36 @@ export const getTopGroups = (config: NavigationGroupConfig): NavigationGroup[] =
               label="Deployment"
               href="/deployment"
               isActive={deploymentPathMatcher}
+            />
+          ),
+        },
+      ],
+    },
+    {
+      key: 'hillpointe',
+      title: 'Hillpointe links',
+      items: [
+        {
+          key: 'hillpointe',
+          label: 'Hillpointe',
+          element: (
+            <NavItemWithLink
+              icon={<Icon name="home" />}
+              label="Hillpointe"
+              href="/hillpointe"
+              isActive={(_, currentLocation) => currentLocation.pathname.startsWith('/hillpointe')}
+            />
+          ),
+        },
+        {
+          key: 'hp-status',
+          label: 'HP Status',
+          element: (
+            <NavItemWithExternalLink
+              icon={<Icon name="status" />}
+              label="HP Status"
+              href="https://status.hillpointehq.com/status-history"
+              right={<Icon name="open_in_new" />}
             />
           ),
         },

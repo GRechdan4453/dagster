@@ -24,6 +24,7 @@ const SnapshotRoot = lazy(() => import('../snapshots/SnapshotRoot'));
 const GuessJobLocationRoot = lazy(() => import('../workspace/GuessJobLocationRoot'));
 const SettingsRoot = lazy(() => import('../settings/SettingsRoot'));
 const JobsRoot = lazy(() => import('../jobs/JobsRoot'));
+const HillpointeRoot = lazy(() => import('../hillpointe/HillpointeRoot'));
 
 export const ContentRoot = memo(() => {
   const {pathname} = useLocation();
@@ -90,6 +91,9 @@ export const ContentRoot = memo(() => {
           </Route>
           <Route path="/deployment">
             <SettingsRoot />
+          </Route>
+          <Route path="/hillpointe">
+            <HillpointeRoot />
           </Route>
           <Route path="*" isNestingRoute>
             <FallthroughRoot />

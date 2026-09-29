@@ -13,6 +13,13 @@
   padding-left: 16px;
 }
 
+.groupTitle {
+  padding: 8px 8px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-lighter);
+}
+
 .logoContainer {
   width: 100%;
   overflow: hidden;

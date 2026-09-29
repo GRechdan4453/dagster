@@ -11,6 +11,8 @@
   height: 100%;
   padding: 16px 4px 16px 16px;
   box-shadow: inset -1px 0 0 var(--color-keyline-default);
+  /* Hillpointe: brand-blue wash deepening toward the bottom */
+  background: linear-gradient(180deg, transparent 15%, var(--color-background-blue) 100%);
   overflow-y: auto;
 }
 

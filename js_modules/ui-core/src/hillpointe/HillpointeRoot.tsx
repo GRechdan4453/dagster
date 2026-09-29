@@ -57,11 +57,6 @@ const BUCKETS: {key: Bucket; label: string; color: string}[] = [
   {key: 'queued', label: 'Queued', color: Colors.accentYellow()},
 ];
 
-const BUCKET_COLOR = Object.fromEntries(BUCKETS.map((b) => [b.key, b.color])) as Record<
-  Bucket,
-  string
->;
-
 const bucketFor = (status: RunStatus): Bucket => {
   switch (status) {
     case RunStatus.SUCCESS:
@@ -243,18 +238,36 @@ const EMPTY_DAY = Colors.backgroundLighter();
 // Written by each copy step; the same label scripts/daily_row_totals.py sums.
 const ROW_COUNT_LABEL = 'rows_copied';
 
-/** Colour for one day: any failure wins, then unfinished runs, then success. */
-const dayColor = (counts: Partial<Record<Bucket, number>>) => {
-  if (counts.failure) {
-    return BUCKET_COLOR.failure;
+// Share of finished runs that succeeded: at or above GOOD is green, at or above
+// MIXED is yellow, below that is red.
+const HEALTH_GOOD = 0.8;
+const HEALTH_MIXED = 0.5;
+
+type Health = 'good' | 'mixed' | 'bad' | 'running' | 'none';
+
+const healthFor = (counts: Partial<Record<Bucket, number>>): Health => {
+  const finished = (counts.success ?? 0) + (counts.failure ?? 0) + (counts.canceled ?? 0);
+  if (!finished) {
+    return counts.inProgress || counts.queued ? 'running' : 'none';
   }
-  if (counts.inProgress || counts.queued) {
-    return BUCKET_COLOR.inProgress;
-  }
-  if (counts.success) {
-    return BUCKET_COLOR.success;
-  }
-  return counts.canceled ? BUCKET_COLOR.canceled : EMPTY_DAY;
+  const rate = (counts.success ?? 0) / finished;
+  return rate >= HEALTH_GOOD ? 'good' : rate >= HEALTH_MIXED ? 'mixed' : 'bad';
+};
+
+const HEALTH_FILL: Record<Health, string> = {
+  good: Colors.accentGreen(),
+  mixed: Colors.accentYellow(),
+  bad: Colors.accentRed(),
+  running: Colors.accentBlue(),
+  none: EMPTY_DAY,
+};
+
+const HEALTH_TEXT: Record<Health, string> = {
+  good: Colors.textGreen(),
+  mixed: Colors.textYellow(),
+  bad: Colors.textRed(),
+  running: Colors.textBlue(),
+  none: Colors.textLighter(),
 };
 
 const startOfDay = (daysAgo: number) => {
@@ -334,19 +347,15 @@ const RunStatusBlock = () => {
     ? (today.counts.success ?? 0) + (today.counts.failure ?? 0) + (today.counts.canceled ?? 0)
     : 0;
   const todayRunning = (today?.total ?? 0) - todayFinished;
-  // Runs arrive newest first.
-  const latest = runs[0];
+  const todayHealth = healthFor(today?.counts ?? {});
 
   return (
     <div className={styles.card}>
       <div className={styles.jobHeader}>
         <div className={styles.jobTitle}>
-          <span
-            className={styles.dot}
-            style={{background: latest ? BUCKET_COLOR[bucketFor(latest.status)] : EMPTY_DAY}}
-          />
+          <span className={styles.dot} style={{background: HEALTH_FILL[todayHealth]}} />
           Pipeline runs
-          <Tooltip content="Each tick is one day. Red: at least one run failed. Blue: runs still going. Green: every run succeeded. Empty: no runs. Row counts add up the rows_copied each step records, by the day its run started; — means no step recorded a count.">
+          <Tooltip content="Colour is the share of finished runs that succeeded: green for 80% or more, yellow for 50–79%, red below 50%. Blue: runs still going, none finished yet. Empty: no runs. Row counts add up the rows_copied each step records, by the day its run started; — means no step recorded a count.">
             <Icon name="info" color={Colors.textLighter()} />
           </Tooltip>
         </div>
@@ -368,7 +377,7 @@ const RunStatusBlock = () => {
         {today?.total ? (
           <span
             style={{
-              color: today.counts.failure ? Colors.textRed() : Colors.textGreen(),
+              color: HEALTH_TEXT[todayHealth],
               fontWeight: 600,
             }}
           >
@@ -397,7 +406,10 @@ const RunStatusBlock = () => {
                 </div>
               }
             >
-              <div className={styles.tick} style={{background: dayColor(day.counts)}} />
+              <div
+                className={styles.tick}
+                style={{background: HEALTH_FILL[healthFor(day.counts)]}}
+              />
             </Tooltip>
           ))}
         </div>

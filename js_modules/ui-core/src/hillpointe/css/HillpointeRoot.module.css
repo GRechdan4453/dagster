@@ -126,12 +126,6 @@
   display: flex;
 }
 
-.plot > span,
-.column,
-.xLabel {
-  max-width: 40px;
-}
-
 .tableWrap {
   overflow-x: auto;
 }

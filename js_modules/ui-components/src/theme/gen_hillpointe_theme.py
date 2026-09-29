@@ -43,6 +43,11 @@ LIGHT = {
     "disabled_bg": "hsl(211 26% 18% / .08)",
     "soft": ".1",
     "soft_hover": ".15",
+    # Chart fills: mid-tones that read as fills on the cream surface, unlike the
+    # darker accents above, which are tuned for text and tags.
+    "viz_green": "hsl(145 45% 42%)",
+    "viz_red": "hsl(0 62% 56%)",
+    "viz_yellow": "hsl(42 85% 52%)",
 }
 
 DARK = {
@@ -77,6 +82,10 @@ DARK = {
     "disabled_bg": "hsl(41 42% 93% / .08)",
     "soft": ".12",
     "soft_hover": ".18",
+    # Chart fills match the accents; they are already bright on dark surfaces.
+    "viz_green": None,
+    "viz_red": None,
+    "viz_yellow": None,
 }
 
 # "Custom theme 1" -- an alternate dark theme (user-selectable, not the default):
@@ -111,6 +120,10 @@ CUSTOM_1 = {
     "disabled_bg": "hsl(40 30% 90% / .08)",
     "soft": ".14",
     "soft_hover": ".2",
+    # Chart fills match the accents; they are already bright on dark surfaces.
+    "viz_green": None,
+    "viz_red": None,
+    "viz_yellow": None,
 }
 
 # Extras that only apply to Custom theme 1.
@@ -238,13 +251,13 @@ def block(m, mode, hue=None):
   --color-lineage-group-node-border: {m['line']};
   --color-lineage-group-node-border-hover: {m['line2']};
 
-  --color-data-viz-green: {green_fill};
+  --color-data-viz-green: {m['viz_green'] or green_fill};
   --color-data-viz-green-alt: {green_hover};
-  --color-data-viz-red: {red_fill};
+  --color-data-viz-red: {m['viz_red'] or red_fill};
   --color-data-viz-red-alt: {red_hover};
   --color-data-viz-blue: {m['brand']};
   --color-data-viz-blue-alt: {m['brand_2']};
-  --color-data-viz-yellow: {m['warn']};
+  --color-data-viz-yellow: {m['viz_yellow'] or m['warn']};
   --color-data-viz-yellow-alt: {m['warn_hover']};
   --color-data-viz-gray: {m['text3']};
   --color-data-viz-gray-alt: {m['text2']};

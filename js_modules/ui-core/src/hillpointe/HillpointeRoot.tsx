@@ -50,11 +50,11 @@ type Run = Extract<
 type Bucket = 'success' | 'failure' | 'canceled' | 'inProgress' | 'queued';
 
 const BUCKETS: {key: Bucket; label: string; color: string}[] = [
-  {key: 'success', label: 'Succeeded', color: Colors.accentGreen()},
-  {key: 'failure', label: 'Failed', color: Colors.accentRed()},
-  {key: 'canceled', label: 'Canceled', color: Colors.accentGray()},
-  {key: 'inProgress', label: 'In progress', color: Colors.accentBlue()},
-  {key: 'queued', label: 'Queued', color: Colors.accentYellow()},
+  {key: 'success', label: 'Succeeded', color: Colors.dataVizGreen()},
+  {key: 'failure', label: 'Failed', color: Colors.dataVizRed()},
+  {key: 'canceled', label: 'Canceled', color: Colors.dataVizGray()},
+  {key: 'inProgress', label: 'In progress', color: Colors.dataVizBlue()},
+  {key: 'queued', label: 'Queued', color: Colors.dataVizYellow()},
 ];
 
 const bucketFor = (status: RunStatus): Bucket => {
@@ -75,10 +75,10 @@ const bucketFor = (status: RunStatus): Bucket => {
 };
 
 const STEP_COLOR: Record<StepEventStatus, string> = {
-  [StepEventStatus.SUCCESS]: Colors.accentGreen(),
-  [StepEventStatus.FAILURE]: Colors.accentRed(),
-  [StepEventStatus.SKIPPED]: Colors.accentGray(),
-  [StepEventStatus.IN_PROGRESS]: Colors.accentBlue(),
+  [StepEventStatus.SUCCESS]: Colors.dataVizGreen(),
+  [StepEventStatus.FAILURE]: Colors.dataVizRed(),
+  [StepEventStatus.SKIPPED]: Colors.dataVizGray(),
+  [StepEventStatus.IN_PROGRESS]: Colors.dataVizBlue(),
 };
 
 /** Seconds a run (or step) has taken so far, or null if it never started. */
@@ -255,10 +255,10 @@ const healthFor = (counts: Partial<Record<Bucket, number>>): Health => {
 };
 
 const HEALTH_FILL: Record<Health, string> = {
-  good: Colors.accentGreen(),
-  mixed: Colors.accentYellow(),
-  bad: Colors.accentRed(),
-  running: Colors.accentBlue(),
+  good: Colors.dataVizGreen(),
+  mixed: Colors.dataVizYellow(),
+  bad: Colors.dataVizRed(),
+  running: Colors.dataVizBlue(),
   none: EMPTY_DAY,
 };
 
@@ -570,7 +570,7 @@ const RunBreakdown = ({
                   className={styles.stepBar}
                   style={{
                     width: `${((step.duration ?? 0) / max) * 100}%`,
-                    background: step.status ? STEP_COLOR[step.status] : Colors.accentGray(),
+                    background: step.status ? STEP_COLOR[step.status] : Colors.dataVizGray(),
                   }}
                 />
               </div>

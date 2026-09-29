@@ -259,12 +259,6 @@
   border-radius: 50%;
 }
 
-.jobStats {
-  display: flex;
-  gap: 24px;
-  text-align: right;
-}
-
 .jobStatValue {
   color: var(--color-text-default);
   font-size: 18px;
@@ -276,46 +270,67 @@
   font-size: 13px;
 }
 
-.tickTitle {
+.statusBody {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+}
+
+.statGrid {
+  flex: 1 1 280px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.miniTile {
+  background: var(--color-background-lighter);
+  border-radius: 6px;
+  padding: 10px 12px;
+  min-width: 0;
+}
+
+.month {
+  flex: 0 0 auto;
+}
+
+.monthTitle {
   color: var(--color-text-light);
   font-size: 12px;
   margin-bottom: 6px;
 }
 
-/* Tooltip wraps each tick in a span; let the spans share the row evenly. */
-/* Grow to fill the card when it sits beside a taller chart. */
-.tickSection {
-  flex: 1 1 auto;
+/* Tooltip wraps each dot in a span; centre the span in its grid cell. */
+.monthGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 26px);
+  gap: 4px;
+  justify-items: center;
+  align-items: center;
+}
+
+.calHead {
+  color: var(--color-text-lighter);
+  font-size: 11px;
+}
+
+.monthDot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
 }
 
-.ticks {
-  flex: 1 1 auto;
-  display: flex;
-  gap: 2px;
-  min-height: 36px;
-}
-
-.ticks > span {
-  flex: 1 1 0;
-  min-width: 0;
-  display: flex;
-}
-
-.tick {
-  flex: 1 1 0;
-  border-radius: 1px;
-}
-
-.tick:hover {
+.monthDot:hover {
   opacity: 0.7;
 }
 
-.tickAxis {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 6px;
-  color: var(--color-text-lighter);
-  font-size: 11px;
+.monthFuture {
+  opacity: 0.35;
 }

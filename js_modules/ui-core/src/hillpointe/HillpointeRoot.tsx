@@ -341,6 +341,14 @@ const RunStatusBlock = () => {
     : 0;
   const todayRunning = (today?.total ?? 0) - todayFinished;
   const todayHealth = healthFor(today?.counts ?? {});
+  const week = days
+    .slice(-7)
+    .reduce(
+      (acc, d) => ({total: acc.total + d.total, failed: acc.failed + (d.counts.failure ?? 0)}),
+      {total: 0, failed: 0},
+    );
+  // Runs arrive newest first.
+  const lastFailure = runs.find((r) => bucketFor(r.status) === 'failure');
 
   return (
     <div className={styles.card}>
@@ -352,64 +360,130 @@ const RunStatusBlock = () => {
             <Icon name="info" color={Colors.textLighter()} />
           </Tooltip>
         </div>
-        <div className={styles.jobStats}>
-          <div>
+      </div>
+      <div className={styles.statusBody}>
+        <div className={styles.statGrid}>
+          <div className={styles.miniTile}>
             <div className={styles.tileLabel}>Row count yesterday</div>
             <div className={styles.jobStatValue}>
               {rowCounts.yesterday?.toLocaleString() ?? '—'}
             </div>
           </div>
-          <div>
+          <div className={styles.miniTile}>
             <div className={styles.tileLabel}>Row count today</div>
             <div className={styles.jobStatValue}>{rowCounts.today?.toLocaleString() ?? '—'}</div>
           </div>
+          <div className={styles.miniTile}>
+            <div className={styles.tileLabel}>Today&apos;s status</div>
+            <div className={styles.jobStatValue} style={{color: HEALTH_TEXT[todayHealth]}}>
+              {today?.total
+                ? `${today.counts.success ?? 0}/${todayFinished} passed${
+                    todayRunning ? `, ${todayRunning} running` : ''
+                  }`
+                : 'No runs'}
+            </div>
+          </div>
+          <div className={styles.miniTile}>
+            <div className={styles.tileLabel}>Runs, last 7 days</div>
+            <div className={styles.jobStatValue}>{week.total}</div>
+          </div>
+          <div className={styles.miniTile}>
+            <div className={styles.tileLabel}>Failed, last 7 days</div>
+            <div
+              className={styles.jobStatValue}
+              style={{color: week.failed ? Colors.textRed() : undefined}}
+            >
+              {week.failed}
+            </div>
+          </div>
+          <div className={styles.miniTile}>
+            <div className={styles.tileLabel}>Last failure</div>
+            <div className={styles.jobStatValue}>
+              {lastFailure
+                ? new Date(lastFailure.creationTime * 1000).toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                  })
+                : 'None'}
+            </div>
+          </div>
         </div>
+        <RunMonthCalendar days={days} />
       </div>
-      <div className={styles.jobToday}>
-        Today&apos;s status:{' '}
-        {today?.total ? (
-          <span
-            style={{
-              color: HEALTH_TEXT[todayHealth],
-              fontWeight: 600,
-            }}
-          >
-            {today.counts.success ?? 0}/{todayFinished} runs successful
-            {todayRunning ? `, ${todayRunning} still running` : ''}
-          </span>
-        ) : (
-          <span className={styles.muted}>No runs today</span>
-        )}
+    </div>
+  );
+};
+
+type DayCounts = {date: Date; counts: Partial<Record<Bucket, number>>; total: number};
+
+const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+/** This month as a calendar: one dot per day, coloured by that day's health. */
+const RunMonthCalendar = ({days}: {days: DayCounts[]}) => {
+  const byKey = new Map(days.map((d) => [dayKey(d.date), d]));
+  const today = startOfDay(0);
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  // Leading blanks so the 1st lands on its weekday, Monday first.
+  const lead = (monthStart.getDay() + 6) % 7;
+  const cells = [
+    ...Array.from({length: lead}, () => null),
+    ...Array.from({length: daysInMonth}, (_, i) => {
+      const date = new Date(monthStart);
+      date.setDate(i + 1);
+      return {date, day: byKey.get(dayKey(date)), future: date > today};
+    }),
+  ];
+
+  return (
+    <div className={styles.month}>
+      <div className={styles.monthTitle}>
+        {today.toLocaleDateString(undefined, {month: 'long', year: 'numeric'})}
       </div>
-      <div className={styles.tickSection}>
-        <div className={styles.tickTitle}>Run status:</div>
-        <div className={styles.ticks}>
-          {days.map((day) => (
+      <div className={styles.monthGrid}>
+        {WEEKDAY_LETTERS.map((letter, i) => (
+          <div key={i} className={styles.calHead}>
+            {letter}
+          </div>
+        ))}
+        {cells.map((cell, i) => {
+          if (!cell) {
+            return <div key={`lead-${i}`} />;
+          }
+          const {date, day, future} = cell;
+          const health = future ? 'none' : healthFor(day?.counts ?? {});
+          const dot = (
+            <div
+              className={clsx(styles.monthDot, future && styles.monthFuture)}
+              style={{
+                background: HEALTH_FILL[health],
+                color: health === 'none' ? Colors.textLighter() : Colors.backgroundDefault(),
+              }}
+            >
+              {date.getDate()}
+            </div>
+          );
+          return future ? (
+            <span key={date.toISOString()}>{dot}</span>
+          ) : (
             <Tooltip
-              key={day.date.toISOString()}
+              key={date.toISOString()}
               content={
                 <div>
-                  <strong>{day.date.toLocaleDateString()}</strong>:{' '}
-                  {day.total ? `${day.total} runs` : 'No runs'}
-                  {BUCKETS.filter((b) => day.counts[b.key]).map((b) => (
+                  <strong>{date.toLocaleDateString()}</strong>:{' '}
+                  {day?.total ? `${day.total} runs` : 'No runs'}
+                  {BUCKETS.filter((b) => day?.counts[b.key]).map((b) => (
                     <div key={b.key}>
-                      {b.label}: {day.counts[b.key]}
+                      {b.label}: {day?.counts[b.key]}
                     </div>
                   ))}
                 </div>
               }
             >
-              <div
-                className={styles.tick}
-                style={{background: HEALTH_FILL[healthFor(day.counts)]}}
-              />
+              {dot}
             </Tooltip>
-          ))}
-        </div>
-        <div className={styles.tickAxis}>
-          <span>{HISTORY_DAYS - 1} days ago</span>
-          <span>Today</span>
-        </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -417,7 +491,13 @@ const RunStatusBlock = () => {
 
 const TREND_HEIGHT = 160;
 
-/** Daily success rate over the last TREND_DAYS days, as a line. */
+const ROLLING_DAYS = 7;
+
+/**
+ * Rolling success rate over the last TREND_DAYS days, as a line. Each point is
+ * the share of finished runs that succeeded in the ROLLING_DAYS days ending on
+ * that day, so one bad run nudges the line rather than dropping it to zero.
+ */
 const SuccessRateTrend = () => {
   // Same variables as RunStatusBlock's history query, so Apollo serves it from cache.
   const [historyStart] = useState(() => startOfDay(HISTORY_DAYS - 1));
@@ -430,12 +510,14 @@ const SuccessRateTrend = () => {
   const days = useMemo(() => {
     const result = queryResult.data?.runsOrError;
     const runs = result?.__typename === 'Runs' ? result.results : [];
-    const list = Array.from({length: TREND_DAYS}, (_, i) => ({
-      date: startOfDay(TREND_DAYS - 1 - i),
+    // Daily counts reach back an extra window so the first point has a full one.
+    const span = TREND_DAYS + ROLLING_DAYS - 1;
+    const daily = Array.from({length: span}, (_, i) => ({
+      date: startOfDay(span - 1 - i),
       succeeded: 0,
       finished: 0,
     }));
-    const byKey = new Map(list.map((d) => [dayKey(d.date), d]));
+    const byKey = new Map(daily.map((d) => [dayKey(d.date), d]));
     runs.forEach((r) => {
       const day = byKey.get(dayKey(new Date(r.creationTime * 1000)));
       const bucket = bucketFor(r.status);
@@ -444,20 +526,18 @@ const SuccessRateTrend = () => {
         day.succeeded += bucket === 'success' ? 1 : 0;
       }
     });
-    return list.map((d) => ({...d, rate: d.finished ? d.succeeded / d.finished : null}));
+    return daily.slice(ROLLING_DAYS - 1).map((d, i) => {
+      const window = daily.slice(i, i + ROLLING_DAYS);
+      const succeeded = window.reduce((sum, w) => sum + w.succeeded, 0);
+      const finished = window.reduce((sum, w) => sum + w.finished, 0);
+      return {date: d.date, succeeded, finished, rate: finished ? succeeded / finished : null};
+    });
   }, [queryResult.data]);
 
-  const latest = [...days].reverse().find((d) => d.rate !== null);
-  const lastWeek = days
-    .slice(-7)
-    .reduce(
-      (acc, d) => ({succeeded: acc.succeeded + d.succeeded, finished: acc.finished + d.finished}),
-      {succeeded: 0, finished: 0},
-    );
-  const weekRate = lastWeek.finished ? lastWeek.succeeded / lastWeek.finished : null;
+  const latest = days[days.length - 1];
   const pct = (rate: number | null) => (rate === null ? '—' : `${Math.round(rate * 100)}%`);
 
-  // Points sit at column centres; days with no finished runs break the line.
+  // Points sit at column centres; a window with no finished runs breaks the line.
   const step = 100 / TREND_DAYS;
   const x = (i: number) => (i + 0.5) * step;
   const y = (rate: number) => TREND_HEIGHT - rate * TREND_HEIGHT;
@@ -479,11 +559,8 @@ const SuccessRateTrend = () => {
       <Box flex={{alignItems: 'baseline', gap: 12}}>
         <div className={styles.tileValue}>{pct(latest?.rate ?? null)}</div>
         <div className={styles.tileSub}>
-          {latest
-            ? latest.date.toLocaleDateString(undefined, {month: 'short', day: 'numeric'})
-            : ''}
-          {' · 7-day avg '}
-          {pct(weekRate)}
+          Last {ROLLING_DAYS} days
+          {latest?.finished ? ` · ${latest.succeeded} of ${latest.finished} runs succeeded` : ''}
         </div>
       </Box>
       <div className={styles.plot}>
@@ -513,8 +590,8 @@ const SuccessRateTrend = () => {
               <div>
                 <strong>{day.date.toLocaleDateString()}</strong>:{' '}
                 {day.finished
-                  ? `${pct(day.rate)} · ${day.succeeded} of ${day.finished} succeeded`
-                  : 'No finished runs'}
+                  ? `${pct(day.rate)} · ${day.succeeded} of ${day.finished} runs succeeded in the ${ROLLING_DAYS} days ending here`
+                  : `No finished runs in the ${ROLLING_DAYS} days ending here`}
               </div>
             }
           >

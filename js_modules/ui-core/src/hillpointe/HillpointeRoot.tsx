@@ -2,10 +2,8 @@ import {
   Box,
   Button,
   Colors,
-  Heading,
   Icon,
   NonIdealState,
-  PageHeader,
   Spinner,
   Table,
   Tag,
@@ -140,6 +138,9 @@ export const HillpointeRoot = () => {
     }
     return (
       <div className={styles.page}>
+        <Box flex={{justifyContent: 'flex-end'}}>
+          <QueryRefreshCountdown refreshState={refreshState} />
+        </Box>
         <SummaryTiles runs={runs} />
         <div className={styles.chartGrid}>
           <RunsPerDayChart runs={runs} />
@@ -163,14 +164,6 @@ export const HillpointeRoot = () => {
 
   return (
     <Box flex={{direction: 'column'}} style={{height: '100%', overflow: 'hidden'}}>
-      <PageHeader
-        title={
-          <Heading size={16} weight={600}>
-            Hillpointe
-          </Heading>
-        }
-        right={<QueryRefreshCountdown refreshState={refreshState} />}
-      />
       {content()}
     </Box>
   );

@@ -43,10 +43,10 @@ LIGHT = {
     "disabled_bg": "hsl(211 26% 18% / .08)",
     "soft": ".1",
     "soft_hover": ".15",
-    # Chart fills: mid-tones that read as fills on the cream surface, unlike the
-    # darker accents above, which are tuned for text and tags.
-    "viz_green": "hsl(145 45% 42%)",
-    "viz_red": "hsl(0 62% 56%)",
+    # Chart fills: the Alinos light-mode --pos / --neg tokens, so charts match
+    # the brand palette rather than the shifted status accents above.
+    "viz_green": "hsl(176 50% 32%)",
+    "viz_red": "hsl(0 64% 46%)",
     "viz_yellow": "hsl(42 85% 52%)",
 }
 

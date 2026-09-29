@@ -506,7 +506,7 @@ const SuccessRateTrend = () => {
             vectorEffect="non-scaling-stroke"
           />
         </svg>
-        {days.map((day, i) => (
+        {days.map((day) => (
           <Tooltip
             key={day.date.toISOString()}
             content={

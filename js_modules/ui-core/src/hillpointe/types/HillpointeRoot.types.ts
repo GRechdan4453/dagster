@@ -54,6 +54,70 @@ export type HillpointeRunMetricsQuery = {
       };
 };
 
+export type HillpointeRunHistoryQueryVariables = Exact<{
+  after: number;
+}>;
+
+export type HillpointeRunHistoryQuery = {
+  __typename: 'Query';
+  runsOrError:
+    | {__typename: 'InvalidPipelineRunsFilterError'}
+    | {__typename: 'PythonError'}
+    | {
+        __typename: 'Runs';
+        results: Array<{
+          __typename: 'Run';
+          id: string;
+          status: Types.RunStatus;
+          creationTime: number;
+        }>;
+      };
+};
+
+export type HillpointeRowCountQueryVariables = Exact<{
+  after: number;
+}>;
+
+export type HillpointeRowCountQuery = {
+  __typename: 'Query';
+  runsOrError:
+    | {__typename: 'InvalidPipelineRunsFilterError'}
+    | {__typename: 'PythonError'}
+    | {
+        __typename: 'Runs';
+        results: Array<{
+          __typename: 'Run';
+          id: string;
+          assetMaterializations: Array<{
+            __typename: 'MaterializationEvent';
+            timestamp: string;
+            metadataEntries: Array<
+              | {__typename: 'AssetMetadataEntry'; label: string}
+              | {__typename: 'BoolMetadataEntry'; label: string}
+              | {__typename: 'CodeReferencesMetadataEntry'; label: string}
+              | {__typename: 'FloatMetadataEntry'; label: string}
+              | {__typename: 'IntMetadataEntry'; intRepr: string; label: string}
+              | {__typename: 'JobMetadataEntry'; label: string}
+              | {__typename: 'JsonMetadataEntry'; label: string}
+              | {__typename: 'MarkdownMetadataEntry'; label: string}
+              | {__typename: 'NotebookMetadataEntry'; label: string}
+              | {__typename: 'NullMetadataEntry'; label: string}
+              | {__typename: 'PathMetadataEntry'; label: string}
+              | {__typename: 'PipelineRunMetadataEntry'; label: string}
+              | {__typename: 'PoolMetadataEntry'; label: string}
+              | {__typename: 'PythonArtifactMetadataEntry'; label: string}
+              | {__typename: 'TableColumnLineageMetadataEntry'; label: string}
+              | {__typename: 'TableMetadataEntry'; label: string}
+              | {__typename: 'TableSchemaMetadataEntry'; label: string}
+              | {__typename: 'TextMetadataEntry'; label: string}
+              | {__typename: 'TimestampMetadataEntry'; label: string}
+              | {__typename: 'UrlMetadataEntry'; label: string}
+            >;
+          }>;
+        }>;
+      };
+};
+
 export type HillpointeRunStepStatsQueryVariables = Exact<{
   runId: string;
 }>;

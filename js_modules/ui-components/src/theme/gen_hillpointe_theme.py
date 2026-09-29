@@ -79,16 +79,66 @@ DARK = {
     "soft_hover": ".18",
 }
 
+# "Custom theme 1" -- an alternate dark theme (user-selectable, not the default):
+# warm stone greys, amber accent, green success, red failure, gold warnings.
+CUSTOM_1 = {
+    "bg0": "hsl(30 10% 8%)",
+    "bg1": "hsl(30 9% 11%)",
+    "bg2": "hsl(30 8% 15%)",
+    "bg3": "hsl(30 8% 20%)",
+    "text": "hsl(40 30% 90%)",
+    "text2": "hsl(35 15% 72%)",
+    "text3": "hsl(35 10% 58%)",
+    "brand": "hsl(35 95% 58%)",
+    "brand_hover": "hsl(38 100% 66%)",
+    "brand_2": "hsl(25 85% 45%)",
+    "brand_2_ink": "hsl(30 90% 62%)",
+    "brand_line": "hsl(35 95% 58% / .5)",
+    "line": "hsl(40 30% 90% / .1)",
+    "line2": "hsl(40 30% 90% / .18)",
+    "pos": "hsl(145 70% 50%)",
+    "pos_hover": "hsl(145 70% 58%)",
+    "neg": "hsl(0 85% 62%)",
+    "neg_hover": "hsl(0 85% 69%)",
+    "warn": "hsl(48 95% 55%)",
+    "warn_hover": "hsl(48 100% 62%)",
+    "warn_ink": "hsl(48 95% 55%)",
+    "scrim": "hsl(0 0% 0% / .6)",
+    "shadow": "hsl(0 0% 0% / .6)",
+    "nav_bg": "hsl(30 10% 6%)",
+    "tooltip_bg": "hsl(30 8% 20%)",
+    "tooltip_text": "hsl(40 30% 90%)",
+    "disabled_bg": "hsl(40 30% 90% / .08)",
+    "soft": ".14",
+    "soft_hover": ".2",
+}
+
+# Extras that only apply to Custom theme 1.
+CUSTOM_1_EXTRAS = """
+.themeCustom1 {
+  --font-default: Geist Mono, Roboto Mono, Menlo, monospace;
+}
+
+/* Square everything off for a blocky look. */
+.themeCustom1 *,
+.themeCustom1 *::before,
+.themeCustom1 *::after {
+  border-radius: 0 !important;
+}
+"""
+
 # hue-only forms, for building translucent fills
 HUE = {
     "light": {"pos": "145 60% 27%", "neg": "0 70% 44%", "warn": "48 66% 40%",
               "brand": "211 74% 45%", "brand_2": "211 72% 36%", "gray": "211 26% 18%"},
     "dark": {"pos": "145 65% 62%", "neg": "0 85% 68%", "warn": "48 46% 61%",
              "brand": "211 87% 69%", "brand_2": "211 60% 45%", "gray": "41 42% 93%"},
+    "custom1": {"pos": "145 70% 50%", "neg": "0 85% 62%", "warn": "48 95% 55%",
+                 "brand": "35 95% 58%", "brand_2": "25 85% 45%", "gray": "40 30% 90%"},
 }
 
 
-def block(m, mode):
+def block(m, mode, hue=None):
     """Emit the full token set for one theme block.
 
     Dagster ships NoRedGreen theme variants that swap red->yellow and
@@ -96,7 +146,7 @@ def block(m, mode):
     substitution: failure is always red and success is always green in every
     variant, so the NoRedGreen classes render identically to their base.
     """
-    h = HUE[mode]
+    h = HUE[hue or mode]
     a = m["soft"]
     ah = m["soft_hover"]
 
@@ -238,6 +288,8 @@ def main():
 
     out.append(".themeLight, .themeLightNoRedGreen {\n" + block(LIGHT, "light") + "}\n")
     out.append(".themeDark, .themeDarkNoRedGreen {\n" + block(DARK, "dark") + "}\n")
+    out.append(".themeCustom1 {\n" + block(CUSTOM_1, "dark", "custom1") + "}\n")
+    out.append(CUSTOM_1_EXTRAS)
 
     return "\n".join(out)
 

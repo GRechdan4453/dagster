@@ -275,9 +275,9 @@ const addChildren = (boxes: GanttChartBox[], box: GanttChartBox, params: BuildLa
 const TextColorForStates = {
   [IStepState.RUNNING]: Colors.textBlue(),
   [IStepState.RETRY_REQUESTED]: Colors.accentWhite(),
-  // Hillpointe: page background colour, so dark text on the light green in dark mode
+  // Hillpointe: page background colour, so dark text on the light green/red in dark mode
   [IStepState.SUCCEEDED]: Colors.backgroundDefault(),
-  [IStepState.FAILED]: Colors.accentWhite(),
+  [IStepState.FAILED]: Colors.backgroundDefault(),
   [IStepState.SKIPPED]: Colors.accentWhite(),
   [IStepState.UNKNOWN]: Colors.accentWhite(),
 };

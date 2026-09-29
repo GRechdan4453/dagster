@@ -45,6 +45,11 @@ export const ThemeSelect = ({theme, onChange}: Props) => {
       label: 'Use system setting (no red or green)',
       icon: 'daemon',
     },
+    {
+      key: DagsterTheme.Custom1,
+      label: 'Custom theme 1',
+      icon: 'star',
+    },
   ];
 
   const activeItem = items.find(({key}) => key === theme);

@@ -405,3 +405,111 @@
   --color-data-viz-gray: hsl(211 21% 58%);
   --color-data-viz-gray-alt: hsl(211 34% 71%);
 }
+
+.themeCustom1 {
+  --browser-color-scheme: dark;
+
+  --color-background-default: hsl(30 10% 8%);
+  --color-background-default-hover: hsl(30 9% 11%);
+  --color-background-light: hsl(30 9% 11%);
+  --color-background-light-hover: hsl(30 8% 15%);
+  --color-background-lighter: hsl(30 8% 15%);
+  --color-background-lighter-hover: hsl(30 8% 20%);
+  --color-background-disabled: hsl(40 30% 90% / .08);
+
+  --color-text-default: hsl(40 30% 90%);
+  --color-text-light: hsl(35 15% 72%);
+  --color-text-lighter: hsl(35 10% 58%);
+  --color-text-disabled: hsl(35 10% 58%);
+
+  --color-accent-primary: hsl(35 95% 58%);
+  --color-accent-primary-hover: hsl(38 100% 66%);
+  --color-accent-blue: hsl(35 95% 58%);
+  --color-accent-blue-hover: hsl(38 100% 66%);
+  --color-accent-reversed: hsl(30 10% 8%);
+  --color-accent-reversed-hover: hsl(30 9% 11%);
+  --color-accent-gray: hsl(35 10% 58%);
+  --color-accent-gray-hover: hsl(35 15% 72%);
+  --color-link-default: hsl(35 95% 58%);
+  --color-link-hover: hsl(38 100% 66%);
+  --color-link-disabled: hsl(35 10% 58%);
+  --color-text-blue: hsl(35 95% 58%);
+  --color-focus-ring: hsl(35 95% 58% / .5);
+  --color-checkbox-checked: hsl(35 95% 58%);
+  --color-checkbox-unchecked: hsl(35 10% 58%);
+  --color-checkbox-disabled: hsl(35 10% 58%);
+
+  --color-border-default: hsl(40 30% 90% / .1);
+  --color-border-hover: hsl(40 30% 90% / .18);
+  --color-border-disabled: hsl(40 30% 90% / .1);
+  --color-keyline-default: hsl(40 30% 90% / .1);
+
+  --color-accent-green: hsl(145 70% 50%);
+  --color-accent-green-hover: hsl(145 70% 58%);
+  --color-accent-red: hsl(0 85% 62%);
+  --color-accent-red-hover: hsl(0 85% 69%);
+  --color-accent-yellow: hsl(48 95% 55%);
+  --color-accent-yellow-hover: hsl(48 100% 62%);
+  --color-text-green: hsl(145 70% 50%);
+  --color-text-red: hsl(0 85% 62%);
+  --color-text-yellow: hsl(48 95% 55%);
+  --color-background-green: hsl(145 70% 50% / .14);
+  --color-background-green-hover: hsl(145 70% 50% / .2);
+  --color-background-red: hsl(0 85% 62% / .14);
+  --color-background-red-hover: hsl(0 85% 62% / .2);
+  --color-background-yellow: hsl(48 95% 55% / .14);
+  --color-background-yellow-hover: hsl(48 95% 55% / .2);
+  --color-background-blue: hsl(35 95% 58% / .14);
+  --color-background-blue-hover: hsl(35 95% 58% / .2);
+  --color-background-gray: hsl(40 30% 90% / .14);
+  --color-background-gray-hover: hsl(40 30% 90% / .2);
+
+  --color-nav-background: hsl(30 10% 6%);
+  --color-nav-text: hsl(35 15% 72%);
+  --color-nav-text-hover: hsl(40 30% 90%);
+  --color-nav-text-selected: hsl(40 30% 90%);
+  --color-nav-button: hsl(30 8% 15%);
+  --color-nav-button-hover: hsl(30 8% 20%);
+
+  --color-popover-background: hsl(30 8% 15%);
+  --color-popover-background-hover: hsl(30 8% 20%);
+  --color-dialog-background: hsl(0 0% 0% / .6);
+  --color-tooltip-background: hsl(30 8% 20%);
+  --color-tooltip-text: hsl(40 30% 90%);
+  --color-shadow-default: hsl(0 0% 0% / .6);
+
+  --color-lineage-edge: hsl(40 30% 90% / .18);
+  --color-lineage-edge-highlighted: hsl(35 95% 58%);
+  --color-lineage-node-background: hsl(30 8% 15%);
+  --color-lineage-node-background-hover: hsl(30 8% 20%);
+  --color-lineage-node-border: hsl(40 30% 90% / .1);
+  --color-lineage-node-border-hover: hsl(40 30% 90% / .18);
+  --color-lineage-node-border-selected: hsl(35 95% 58%);
+  --color-lineage-group-node-background: hsl(30 9% 11%);
+  --color-lineage-group-node-background-hover: hsl(30 8% 15%);
+  --color-lineage-group-node-border: hsl(40 30% 90% / .1);
+  --color-lineage-group-node-border-hover: hsl(40 30% 90% / .18);
+
+  --color-data-viz-green: hsl(145 70% 50%);
+  --color-data-viz-green-alt: hsl(145 70% 58%);
+  --color-data-viz-red: hsl(0 85% 62%);
+  --color-data-viz-red-alt: hsl(0 85% 69%);
+  --color-data-viz-blue: hsl(35 95% 58%);
+  --color-data-viz-blue-alt: hsl(25 85% 45%);
+  --color-data-viz-yellow: hsl(48 95% 55%);
+  --color-data-viz-yellow-alt: hsl(48 100% 62%);
+  --color-data-viz-gray: hsl(35 10% 58%);
+  --color-data-viz-gray-alt: hsl(35 15% 72%);
+}
+
+
+.themeCustom1 {
+  --font-default: Geist Mono, Roboto Mono, Menlo, monospace;
+}
+
+/* Square everything off for a blocky look. */
+.themeCustom1 *,
+.themeCustom1 *::before,
+.themeCustom1 *::after {
+  border-radius: 0 !important;
+}

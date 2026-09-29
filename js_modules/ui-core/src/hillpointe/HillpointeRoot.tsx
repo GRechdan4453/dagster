@@ -36,7 +36,7 @@ import {useDocumentTitle} from '../hooks/useDocumentTitle';
 import {RunStatusTag} from '../runs/RunStatusTag';
 
 const RUN_LIMIT = 100;
-const DAYS = 14;
+const TREND_DAYS = 30;
 const HISTORY_DAYS = 90;
 
 type Run = Extract<
@@ -143,7 +143,7 @@ export const HillpointeRoot = () => {
         </Box>
         <SummaryTiles runs={runs} />
         <div className={styles.chartGrid}>
-          <RunsPerDayChart runs={runs} />
+          <SuccessRateTrend />
           <RunStatusBlock />
         </div>
         {selectedRun ? (
@@ -415,63 +415,119 @@ const RunStatusBlock = () => {
   );
 };
 
-const RunsPerDayChart = ({runs}: {runs: Run[]}) => {
+const TREND_HEIGHT = 160;
+
+/** Daily success rate over the last TREND_DAYS days, as a line. */
+const SuccessRateTrend = () => {
+  // Same variables as RunStatusBlock's history query, so Apollo serves it from cache.
+  const [historyStart] = useState(() => startOfDay(HISTORY_DAYS - 1));
+  const queryResult = useQuery<HillpointeRunHistoryQuery, HillpointeRunHistoryQueryVariables>(
+    HILLPOINTE_RUN_HISTORY_QUERY,
+    {variables: {after: historyStart.getTime() / 1000}},
+  );
+  useQueryRefreshAtInterval(queryResult, FIFTEEN_SECONDS);
+
   const days = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const list = Array.from({length: DAYS}, (_, i) => {
-      const date = new Date(today);
-      date.setDate(today.getDate() - (DAYS - 1 - i));
-      return {date, counts: {} as Partial<Record<Bucket, number>>, total: 0};
-    });
+    const result = queryResult.data?.runsOrError;
+    const runs = result?.__typename === 'Runs' ? result.results : [];
+    const list = Array.from({length: TREND_DAYS}, (_, i) => ({
+      date: startOfDay(TREND_DAYS - 1 - i),
+      succeeded: 0,
+      finished: 0,
+    }));
     const byKey = new Map(list.map((d) => [dayKey(d.date), d]));
     runs.forEach((r) => {
       const day = byKey.get(dayKey(new Date(r.creationTime * 1000)));
-      if (day) {
-        const bucket = bucketFor(r.status);
-        day.counts[bucket] = (day.counts[bucket] ?? 0) + 1;
-        day.total++;
+      const bucket = bucketFor(r.status);
+      if (day && (bucket === 'success' || bucket === 'failure' || bucket === 'canceled')) {
+        day.finished++;
+        day.succeeded += bucket === 'success' ? 1 : 0;
       }
     });
-    return list;
-  }, [runs]);
-  const max = Math.max(1, ...days.map((d) => d.total));
+    return list.map((d) => ({...d, rate: d.finished ? d.succeeded / d.finished : null}));
+  }, [queryResult.data]);
+
+  const latest = [...days].reverse().find((d) => d.rate !== null);
+  const lastWeek = days
+    .slice(-7)
+    .reduce(
+      (acc, d) => ({succeeded: acc.succeeded + d.succeeded, finished: acc.finished + d.finished}),
+      {succeeded: 0, finished: 0},
+    );
+  const weekRate = lastWeek.finished ? lastWeek.succeeded / lastWeek.finished : null;
+  const pct = (rate: number | null) => (rate === null ? '—' : `${Math.round(rate * 100)}%`);
+
+  // Points sit at column centres; days with no finished runs break the line.
+  const step = 100 / TREND_DAYS;
+  const x = (i: number) => (i + 0.5) * step;
+  const y = (rate: number) => TREND_HEIGHT - rate * TREND_HEIGHT;
+  const path = days
+    .map((d, i) => (d.rate === null ? '' : `${x(i)},${y(d.rate)}`))
+    .reduce((acc, point, i, all) => {
+      if (!point) {
+        return acc;
+      }
+      const prev = i > 0 ? all[i - 1] : '';
+      return `${acc}${prev ? 'L' : 'M'}${point} `;
+    }, '');
 
   return (
     <div className={styles.card}>
       <div className={styles.cardTitle}>
-        Runs per day<span className={styles.cardSub}>Last {DAYS} days</span>
+        Success rate<span className={styles.cardSub}>Last {TREND_DAYS} days</span>
       </div>
-      <Legend items={BUCKETS} />
+      <Box flex={{alignItems: 'baseline', gap: 12}}>
+        <div className={styles.tileValue}>{pct(latest?.rate ?? null)}</div>
+        <div className={styles.tileSub}>
+          {latest
+            ? latest.date.toLocaleDateString(undefined, {month: 'short', day: 'numeric'})
+            : ''}
+          {' · 7-day avg '}
+          {pct(weekRate)}
+        </div>
+      </Box>
       <div className={styles.plot}>
         <div className={styles.gridline}>
-          <span className={styles.gridLabel}>{max}</span>
+          <span className={styles.gridLabel}>100%</span>
         </div>
-        {days.map((day) => (
+        <div className={styles.gridline} style={{top: '50%'}}>
+          <span className={styles.gridLabel}>50%</span>
+        </div>
+        <svg
+          className={styles.trendSvg}
+          viewBox={`0 0 100 ${TREND_HEIGHT}`}
+          preserveAspectRatio="none"
+        >
+          <path
+            d={path}
+            fill="none"
+            stroke={Colors.dataVizGreen()}
+            strokeWidth={2}
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        {days.map((day, i) => (
           <Tooltip
             key={day.date.toISOString()}
             content={
               <div>
-                <strong>{day.date.toLocaleDateString()}</strong>: {day.total} runs
-                {BUCKETS.filter((b) => day.counts[b.key]).map((b) => (
-                  <div key={b.key}>
-                    {b.label}: {day.counts[b.key]}
-                  </div>
-                ))}
+                <strong>{day.date.toLocaleDateString()}</strong>:{' '}
+                {day.finished
+                  ? `${pct(day.rate)} · ${day.succeeded} of ${day.finished} succeeded`
+                  : 'No finished runs'}
               </div>
             }
           >
             <div className={styles.column}>
-              {BUCKETS.filter((b) => day.counts[b.key]).map((b) => (
-                <div
-                  key={b.key}
-                  className={styles.segment}
+              {day.rate !== null ? (
+                <span
+                  className={styles.point}
                   style={{
-                    height: `${((day.counts[b.key] ?? 0) / max) * 100}%`,
-                    background: b.color,
+                    top: `${(1 - day.rate) * 100}%`,
+                    background: Colors.dataVizGreen(),
                   }}
                 />
-              ))}
+              ) : null}
             </div>
           </Tooltip>
         ))}
@@ -479,19 +535,13 @@ const RunsPerDayChart = ({runs}: {runs: Run[]}) => {
       <div className={styles.xLabels}>
         {days.map((day, i) => (
           <div key={day.date.toISOString()} className={styles.xLabel}>
-            {(DAYS - 1 - i) % 2 === 0 ? day.date.getDate() : ''}
+            {(TREND_DAYS - 1 - i) % 7 === 0 ? day.date.getDate() : ''}
           </div>
         ))}
       </div>
     </div>
   );
 };
-
-interface SelectableProps {
-  runs: Run[];
-  selectedRunId: string | null;
-  onSelect: (runId: string) => void;
-}
 
 const RunBreakdown = ({
   run,
@@ -577,6 +627,12 @@ const RunBreakdown = ({
     </div>
   );
 };
+
+interface SelectableProps {
+  runs: Run[];
+  selectedRunId: string | null;
+  onSelect: (runId: string) => void;
+}
 
 const RunsTable = ({runs, selectedRunId, onSelect}: SelectableProps) => (
   <div className={styles.card}>

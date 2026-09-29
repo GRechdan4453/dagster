@@ -72,6 +72,8 @@
   "LatestDefsStateInfoQuery": "644d3473dec2282a8dfe3c61022bad75d8ed2e356b119c7098c24815301dc9e4",
   "RefreshComponentStateMutation": "efeaf66263eb0d37e7b6da16c1a0397940a0865cb2e420d28b7d9992da8e0ce6",
   "RunGroupPanelQuery": "c454b4e4c3d881b2a78361c5868212f734c458291a3cb28be8ba4a63030eb004",
+  "HillpointeRunMetricsQuery": "52be7e420ed4de0b4f5881f1c760c98cd06286cc774e5261663a426357893813",
+  "HillpointeRunStepStatsQuery": "3e8f66ec06ed9e8f6722e889f7112e60181fe1753f719f92e5132cde5fa61c0b",
   "SetConcurrencyLimit": "758e6bfdb936dff3e4e38f8e1fb447548710a2b2c66fbcad9d4f264a10a61044",
   "DeleteConcurrencyLimit": "03397142bc71bc17649f43dd17aabf4ea771436ebc4ee1cb40eff2c2848d7b4d",
   "FreeConcurrencySlots": "7363c435dba06ed2a4be96e1d9bf1f1f8d9c90533b80ff42896fe9d50879d60e",

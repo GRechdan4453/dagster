@@ -1,0 +1,234 @@
+/* Every colour here is a theme token, so the dashboard follows the selected theme. */
+
+.page {
+  height: 100%;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.tile {
+  background: var(--color-background-light);
+  border: 1px solid var(--color-keyline-default);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tileLabel {
+  color: var(--color-text-light);
+  font-size: 12px;
+}
+
+.tileValue {
+  color: var(--color-text-default);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.tileSub {
+  color: var(--color-text-lighter);
+  font-size: 12px;
+}
+
+.chartGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 12px;
+}
+
+.card {
+  background: var(--color-background-light);
+  border: 1px solid var(--color-keyline-default);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cardTitle {
+  color: var(--color-text-default);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cardSub {
+  color: var(--color-text-lighter);
+  font-size: 12px;
+  font-weight: 400;
+  margin-left: 8px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: var(--color-text-light);
+  font-size: 12px;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.plot {
+  position: relative;
+  height: 160px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  border-bottom: 1px solid var(--color-keyline-default);
+}
+
+.gridline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  border-top: 1px dashed var(--color-keyline-default);
+  pointer-events: none;
+}
+
+.gridLabel {
+  position: absolute;
+  top: -16px;
+  left: 0;
+  color: var(--color-text-lighter);
+  font-size: 11px;
+}
+
+/* Tooltip wraps each column in a span; let that span take the column's slot. */
+.plot > span {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+}
+
+.plot > span,
+.column,
+.xLabel {
+  max-width: 40px;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.column {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+  cursor: default;
+}
+
+.column:hover {
+  background: var(--color-background-lighter);
+}
+
+.column.clickable {
+  cursor: pointer;
+}
+
+.column.selected {
+  background: var(--color-background-blue);
+}
+
+.segment {
+  width: 100%;
+  border-radius: 2px;
+}
+
+.xLabels {
+  display: flex;
+  gap: 2px;
+  color: var(--color-text-lighter);
+  font-size: 11px;
+}
+
+.xLabel {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.stepRows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stepRow {
+  display: grid;
+  grid-template-columns: minmax(80px, 200px) 1fr 64px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.stepName {
+  color: var(--color-text-default);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stepTrack {
+  height: 12px;
+  background: var(--color-background-lighter);
+  border-radius: 2px;
+}
+
+.stepBar {
+  height: 100%;
+  min-width: 2px;
+  border-radius: 2px;
+}
+
+.stepValue {
+  color: var(--color-text-light);
+  text-align: right;
+}
+
+.runRow {
+  cursor: pointer;
+}
+
+.runRow:hover td {
+  background: var(--color-background-lighter);
+}
+
+.runRow.selected td {
+  background: var(--color-background-blue);
+}
+
+.muted {
+  color: var(--color-text-lighter);
+}

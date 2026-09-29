@@ -240,7 +240,8 @@ type HistoryRun = Extract<
 >['results'][number];
 
 const EMPTY_DAY = Colors.backgroundLighter();
-const ROW_COUNT_LABEL = 'dagster/row_count';
+// Written by each copy step; the same label scripts/daily_row_totals.py sums.
+const ROW_COUNT_LABEL = 'rows_copied';
 
 /** Colour for one day: any failure wins, then unfinished runs, then success. */
 const dayColor = (counts: Partial<Record<Bucket, number>>) => {
@@ -302,25 +303,29 @@ const RunStatusBlock = () => {
     return list;
   }, [runs, historyStart]);
 
-  // Sum of dagster/row_count over materializations, split by the day they happened.
+  // Same rules as scripts/daily_row_totals.py: sum each step's rows_copied, credited to the
+  // day the run started. null means no step recorded a count that day.
   const rowCounts = useMemo(() => {
     const result = rowCountResult.data?.runsOrError;
-    const totals = {yesterday: 0, today: 0};
-    const todayStart = startOfDay(0).getTime();
-    (result?.__typename === 'Runs' ? result.results : []).forEach((run) =>
-      run.assetMaterializations.forEach((m) => {
-        const entry = m.metadataEntries.find(
-          (e) => e.__typename === 'IntMetadataEntry' && e.label === ROW_COUNT_LABEL,
-        );
-        const value = entry?.__typename === 'IntMetadataEntry' ? Number(entry.intRepr) : 0;
-        const ts = Number(m.timestamp);
-        if (ts >= todayStart) {
-          totals.today += value;
-        } else if (ts >= yesterdayStart.getTime()) {
-          totals.yesterday += value;
-        }
-      }),
-    );
+    const totals: {yesterday: number | null; today: number | null} = {
+      yesterday: null,
+      today: null,
+    };
+    const todayStart = startOfDay(0).getTime() / 1000;
+    const yesterdayStartSec = yesterdayStart.getTime() / 1000;
+    (result?.__typename === 'Runs' ? result.results : []).forEach((run) => {
+      if (!run.startTime || run.startTime < yesterdayStartSec) {
+        return;
+      }
+      const day = run.startTime >= todayStart ? 'today' : 'yesterday';
+      run.assetMaterializations.forEach((m) =>
+        m.metadataEntries.forEach((e) => {
+          if (e.__typename === 'IntMetadataEntry' && e.label === ROW_COUNT_LABEL) {
+            totals[day] = (totals[day] ?? 0) + Number(e.intRepr);
+          }
+        }),
+      );
+    });
     return totals;
   }, [rowCountResult.data, yesterdayStart]);
 
@@ -341,18 +346,20 @@ const RunStatusBlock = () => {
             style={{background: latest ? BUCKET_COLOR[bucketFor(latest.status)] : EMPTY_DAY}}
           />
           Pipeline runs
-          <Tooltip content="Each tick is one day. Red: at least one run failed. Blue: runs still going. Green: every run succeeded. Empty: no runs. Row counts add up the dagster/row_count metadata on materializations.">
+          <Tooltip content="Each tick is one day. Red: at least one run failed. Blue: runs still going. Green: every run succeeded. Empty: no runs. Row counts add up the rows_copied each step records, by the day its run started; — means no step recorded a count.">
             <Icon name="info" color={Colors.textLighter()} />
           </Tooltip>
         </div>
         <div className={styles.jobStats}>
           <div>
             <div className={styles.tileLabel}>Row count yesterday</div>
-            <div className={styles.jobStatValue}>{rowCounts.yesterday.toLocaleString()}</div>
+            <div className={styles.jobStatValue}>
+              {rowCounts.yesterday?.toLocaleString() ?? '—'}
+            </div>
           </div>
           <div>
             <div className={styles.tileLabel}>Row count today</div>
-            <div className={styles.jobStatValue}>{rowCounts.today.toLocaleString()}</div>
+            <div className={styles.jobStatValue}>{rowCounts.today?.toLocaleString() ?? '—'}</div>
           </div>
         </div>
       </div>
@@ -661,8 +668,8 @@ export const HILLPOINTE_ROW_COUNT_QUERY = gql`
       ... on Runs {
         results {
           id
+          startTime
           assetMaterializations {
-            timestamp
             metadataEntries {
               label
               ... on IntMetadataEntry {

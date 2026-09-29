@@ -88,9 +88,9 @@ export type HillpointeRowCountQuery = {
         results: Array<{
           __typename: 'Run';
           id: string;
+          startTime: number | null;
           assetMaterializations: Array<{
             __typename: 'MaterializationEvent';
-            timestamp: string;
             metadataEntries: Array<
               | {__typename: 'AssetMetadataEntry'; label: string}
               | {__typename: 'BoolMetadataEntry'; label: string}

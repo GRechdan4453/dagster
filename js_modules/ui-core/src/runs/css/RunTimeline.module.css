@@ -161,3 +161,15 @@
   white-space: nowrap;
   width: 100%;
 }
+
+/* Phones: narrower name column. Keep in sync with SMALL_* in RunTimeline.tsx. */
+@media (max-width: 768px) {
+  .dividerContainer {
+    left: 140px;
+  }
+
+  .rowName {
+    width: 140px;
+    padding: 0 8px 0 12px;
+  }
+}

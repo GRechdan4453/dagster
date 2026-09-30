@@ -29,6 +29,7 @@ import {RunBatch, batchRunsForTimeline} from './batchRunsForTimeline';
 import styles from './css/RunTimeline.module.css';
 import {mergeStatusToBackground} from './mergeStatusToBackground';
 import {COMMON_COLLATOR} from '../app/Util';
+import {useIsSmallScreen} from '../app/navigation/NavCollapseProvider';
 import {HiddenAssetGroupJobTooltipIcon} from '../asset-graph/HiddenAssetGroupJobTooltip';
 import {OVERVIEW_COLLAPSED_KEY} from '../overview/OverviewExpansionKey';
 import {TimestampDisplay} from '../schedules/TimestampDisplay';
@@ -50,6 +51,12 @@ const DATE_TIME_HEIGHT = TIME_HEADER_HEIGHT * 2;
 const EMPTY_STATE_HEIGHT = 110;
 const LEFT_SIDE_SPACE_ALLOTTED = 320;
 const LABEL_WIDTH = 268;
+// Phones: a narrower name column so the timeline itself gets most of the width.
+// Keep in sync with the media query in RunTimeline.module.css.
+const SMALL_LEFT_SIDE_SPACE_ALLOTTED = 140;
+const SMALL_LABEL_WIDTH = 100;
+// Show only every Nth hour label on phones so they do not overlap.
+const SMALL_TIME_LABEL_STEP = 4;
 const MIN_DATE_WIDTH_PCT = 10;
 
 const ONE_HOUR_MSEC = 60 * 60 * 1000;
@@ -460,6 +467,7 @@ export const TimeDividers = (props: TimeDividersProps) => {
   }, [end, start, boundaryCursor, interval, formatDateTime]);
 
   const now = _now || Date.now();
+  const isSmallScreen = useIsSmallScreen();
   const msToLeft = (ms: number) => `${(((ms - start) / (end - start)) * 100).toPrecision(3)}%`;
 
   return (
@@ -484,15 +492,17 @@ export const TimeDividers = (props: TimeDividersProps) => {
         ))}
       </div>
       <div className={styles.dividerLabels}>
-        {timeMarkers.map((marker) => (
-          <div
-            className={styles.timeLabel}
-            key={marker.key}
-            style={{left: `${marker.left.toPrecision(3)}%`}}
-          >
-            {marker.label}
-          </div>
-        ))}
+        {timeMarkers.map((marker, i) =>
+          isSmallScreen && i % SMALL_TIME_LABEL_STEP !== 0 ? null : (
+            <div
+              className={styles.timeLabel}
+              key={marker.key}
+              style={{left: `${marker.left.toPrecision(3)}%`}}
+            >
+              {marker.label}
+            </div>
+          ),
+        )}
       </div>
       <div className={styles.dividerLines}>
         <div
@@ -556,7 +566,9 @@ const RunTimelineRow = ({
   width: number;
 }) => {
   const [start, end] = rangeMs;
-  const width = containerWidth - LEFT_SIDE_SPACE_ALLOTTED;
+  const isSmallScreen = useIsSmallScreen();
+  const width =
+    containerWidth - (isSmallScreen ? SMALL_LEFT_SIDE_SPACE_ALLOTTED : LEFT_SIDE_SPACE_ALLOTTED);
   const {runs} = row;
 
   // Batch overlapping runs in this row.
@@ -581,7 +593,7 @@ const RunTimelineRow = ({
     <TimelineRowContainer height={height} start={top}>
       <div className={styles.rowName}>
         <RunTimelineRowIcon type={row.runs[0]?.externalJobSource ? 'airflow' : row.type} />
-        <div style={{width: LABEL_WIDTH}}>
+        <div style={{width: isSmallScreen ? SMALL_LABEL_WIDTH : LABEL_WIDTH}}>
           {row.path ? (
             <Link to={row.path}>
               <MiddleTruncate text={row.name} />

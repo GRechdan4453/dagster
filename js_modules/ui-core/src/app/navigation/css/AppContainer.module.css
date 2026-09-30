@@ -44,3 +44,37 @@
   flex: 0 0 var(--nav-width-collapsed);
   padding: 16px 2px;
 }
+
+/* Phones: the nav is an icon rail; when opened it overlays the page. */
+@media (max-width: 768px) {
+  .container {
+    position: relative;
+  }
+
+  .main,
+  .container:has(.nav) .main {
+    width: calc(100% - var(--nav-width-collapsed));
+    margin-left: var(--nav-width-collapsed);
+  }
+
+  .main.fullScreen {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .nav {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 20;
+    width: var(--nav-width);
+    background-color: var(--color-background-default);
+    box-shadow: 4px 0 16px rgb(0 0 0 / 0.2);
+  }
+
+  .nav.collapsed {
+    width: var(--nav-width-collapsed);
+    box-shadow: inset -1px 0 0 var(--color-keyline-default);
+  }
+}

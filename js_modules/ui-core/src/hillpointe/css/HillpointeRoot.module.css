@@ -421,3 +421,37 @@
   gap: 12px;
   min-width: 0;
 }
+
+/* Phones: tighter padding, one card per row, calendar dots shrink to fit. */
+@media (max-width: 768px) {
+  .page {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chartGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .monthGrid {
+    grid-template-columns: repeat(7, 28px);
+    gap: 4px;
+  }
+
+  .monthDot {
+    width: 24px;
+    height: 24px;
+  }
+
+  .stepRow {
+    grid-template-columns: minmax(60px, 100px) 1fr 56px;
+  }
+
+  .tlRow {
+    grid-template-columns: minmax(60px, 90px) 1fr;
+  }
+}

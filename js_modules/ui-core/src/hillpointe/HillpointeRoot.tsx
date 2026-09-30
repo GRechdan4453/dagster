@@ -154,7 +154,7 @@ export const HillpointeRoot = () => {
         <SummaryTiles runs={runs} />
         <div className={styles.chartGrid}>
           <TrendCard runs={runs} />
-          <RunStatusBlock runs={runs} />
+          <RunStatusBlock />
         </div>
         {selectedRun ? (
           <RunBreakdown
@@ -288,7 +288,7 @@ const startOfDay = (daysAgo: number) => {
   return d;
 };
 
-const RunStatusBlock = ({runs: monthRuns}: {runs: Run[]}) => {
+const RunStatusBlock = () => {
   // Fixed for the life of the page so the query variables stay stable.
   const [historyStart] = useState(() => startOfDay(HISTORY_DAYS - 1));
   const [yesterdayStart] = useState(() => startOfDay(1));
@@ -357,33 +357,6 @@ const RunStatusBlock = ({runs: monthRuns}: {runs: Run[]}) => {
   const todayFinished = today ? (today.counts.success ?? 0) + (today.counts.failure ?? 0) : 0;
   const todayRunning = (today?.total ?? 0) - todayFinished - (today?.counts.canceled ?? 0);
   const todayHealth = healthFor(today?.counts ?? {});
-
-  const statusSlices = useMemo(() => {
-    const counts: Partial<Record<Bucket, number>> = {};
-    monthRuns.forEach((r) => {
-      const b = bucketFor(r.status);
-      counts[b] = (counts[b] ?? 0) + 1;
-    });
-    return BUCKETS.filter((b) => counts[b.key]).map((b) => ({
-      label: b.label,
-      value: counts[b.key] ?? 0,
-      color: b.color,
-    }));
-  }, [monthRuns]);
-
-  const jobSlices = useMemo(() => {
-    const byJob = new Map<string, number>();
-    monthRuns.forEach((r) => byJob.set(r.jobName, (byJob.get(r.jobName) ?? 0) + 1));
-    const sorted = [...byJob.entries()].sort((a, b) => b[1] - a[1]);
-    const top = sorted.slice(0, JOB_SLICES);
-    const rest = sorted.slice(JOB_SLICES).reduce((sum, [, n]) => sum + n, 0);
-    const slices = top.map(([job, n], i) => ({
-      label: job,
-      value: n,
-      color: JOB_COLORS[i % JOB_COLORS.length] ?? Colors.dataVizGray(),
-    }));
-    return rest ? [...slices, {label: 'Other', value: rest, color: Colors.dataVizGray()}] : slices;
-  }, [monthRuns]);
   const week = days
     .slice(-7)
     .reduce(
@@ -452,10 +425,6 @@ const RunStatusBlock = ({runs: monthRuns}: {runs: Run[]}) => {
               </div>
             </div>
           </div>
-          <div className={styles.pies}>
-            <Donut title="Runs by status" slices={statusSlices} />
-            <Donut title="Runs by job" slices={jobSlices} />
-          </div>
         </div>
         <RunMonthCalendar days={days} />
       </div>
@@ -464,79 +433,6 @@ const RunStatusBlock = ({runs: monthRuns}: {runs: Run[]}) => {
 };
 
 type DayCounts = {date: Date; counts: Partial<Record<Bucket, number>>; total: number};
-
-const JOB_SLICES = 4;
-const JOB_COLORS = [
-  Colors.dataVizBlue(),
-  Colors.dataVizBlueAlt(),
-  Colors.dataVizGreen(),
-  Colors.dataVizYellow(),
-];
-// Circle radius chosen so the circumference is 100, making dash lengths percentages.
-const DONUT_R = 15.915;
-
-type Slice = {label: string; value: number; color: string};
-
-/** A small donut with its legend beside it. */
-const Donut = ({title, slices}: {title: string; slices: Slice[]}) => {
-  const total = slices.reduce((sum, x) => sum + x.value, 0);
-  let offset = 0;
-  return (
-    <div className={styles.pie}>
-      <div className={styles.tileLabel}>{title}</div>
-      <div className={styles.pieBody}>
-        <svg viewBox="0 0 42 42" className={styles.pieSvg} role="img" aria-label={title}>
-          <circle cx={21} cy={21} r={DONUT_R} fill="none" stroke={EMPTY_DAY} strokeWidth={6} />
-          {slices.map((slice) => {
-            const pct = total ? (slice.value / total) * 100 : 0;
-            const dash = `${pct} ${100 - pct}`;
-            const el = (
-              <circle
-                key={slice.label}
-                cx={21}
-                cy={21}
-                r={DONUT_R}
-                fill="none"
-                stroke={slice.color}
-                strokeWidth={6}
-                strokeDasharray={dash}
-                strokeDashoffset={25 - offset}
-              >
-                <title>
-                  {slice.label}: {slice.value} ({Math.round(pct)}%)
-                </title>
-              </circle>
-            );
-            offset += pct;
-            return el;
-          })}
-          <text
-            x={21}
-            y={21}
-            className={styles.pieCenter}
-            textAnchor="middle"
-            dominantBaseline="central"
-          >
-            {total}
-          </text>
-        </svg>
-        <div className={styles.pieLegend}>
-          {slices.map((slice) => (
-            <div key={slice.label} className={styles.legendItem}>
-              <span className={styles.swatch} style={{background: slice.color}} />
-              <span className={styles.pieLegendLabel} title={slice.label}>
-                {slice.label}
-              </span>
-              <span className={styles.muted}>
-                {total ? Math.round((slice.value / total) * 100) : 0}%
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 

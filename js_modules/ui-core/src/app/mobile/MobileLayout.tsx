@@ -7,11 +7,13 @@ import {Route} from '../Route';
 import styles from './css/Mobile.module.css';
 
 const MobilePipelines = lazy(() => import('./MobilePipelines'));
+const MobileRuns = lazy(() => import('./MobileRuns'));
 
 // Phone layout: a top bar, the page, and a bottom tab bar. Mobile-only screens
 // live under /m/*; every other route shows the regular page inside this shell.
 const TABS = [
   {to: '/m/pipelines', label: 'Pipelines', icon: 'job' as const},
+  {to: '/m/runs', label: 'Runs', icon: 'run' as const},
   {to: '/overview', label: 'Overview', icon: 'timeline' as const},
 ];
 
@@ -45,6 +47,12 @@ export const MobileLayout = ({children}: {children: ReactNode}) => {
             </Route>
             <Route path="/m/pipelines">
               <MobilePipelines />
+            </Route>
+            <Route exact path="/runs">
+              <Redirect to="/m/runs" />
+            </Route>
+            <Route path="/m/runs">
+              <MobileRuns />
             </Route>
             <Route path="*">{children}</Route>
           </Switch>

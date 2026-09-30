@@ -1,6 +1,7 @@
 import {
   Box,
   Button,
+  ButtonGroup,
   Colors,
   Icon,
   NonIdealState,
@@ -33,10 +34,12 @@ import {
 import {useTrackPageView} from '../app/analytics';
 import {RunStatus, StepEventStatus} from '../graphql/types';
 import {useDocumentTitle} from '../hooks/useDocumentTitle';
+import {useStateWithStorage} from '../hooks/useStateWithStorage';
 import {RunStatusTag} from '../runs/RunStatusTag';
 
 const RUN_LIMIT = 100;
 const TREND_DAYS = 30;
+const ROLLING_DAYS = 7;
 const HISTORY_DAYS = 90;
 
 type Run = Extract<
@@ -143,7 +146,7 @@ export const HillpointeRoot = () => {
         </Box>
         <SummaryTiles runs={runs} />
         <div className={styles.chartGrid}>
-          <SuccessRateTrend />
+          <TrendCard runs={runs} />
           <RunStatusBlock />
         </div>
         {selectedRun ? (
@@ -180,7 +183,8 @@ const Tile = ({label, value, sub}: {label: string; value: string; sub?: string})
 const SummaryTiles = ({runs}: {runs: Run[]}) => {
   const counts = {success: 0, failure: 0, canceled: 0, inProgress: 0, queued: 0};
   runs.forEach((r) => counts[bucketFor(r.status)]++);
-  const finished = counts.success + counts.failure + counts.canceled;
+  // Canceled runs are neither passes nor failures, so they sit outside the rate.
+  const finished = counts.success + counts.failure;
   const durations = runs
     .filter((r) => r.endTime)
     .map((r) => durationSec(r.startTime, r.endTime))
@@ -238,8 +242,9 @@ const HEALTH_MIXED = 0.5;
 
 type Health = 'good' | 'mixed' | 'bad' | 'running' | 'none';
 
+// Canceled runs are neither passes nor failures, so they sit outside the rate.
 const healthFor = (counts: Partial<Record<Bucket, number>>): Health => {
-  const finished = (counts.success ?? 0) + (counts.failure ?? 0) + (counts.canceled ?? 0);
+  const finished = (counts.success ?? 0) + (counts.failure ?? 0);
   if (!finished) {
     return counts.inProgress || counts.queued ? 'running' : 'none';
   }
@@ -336,10 +341,8 @@ const RunStatusBlock = () => {
   }, [rowCountResult.data, yesterdayStart]);
 
   const today = days[days.length - 1];
-  const todayFinished = today
-    ? (today.counts.success ?? 0) + (today.counts.failure ?? 0) + (today.counts.canceled ?? 0)
-    : 0;
-  const todayRunning = (today?.total ?? 0) - todayFinished;
+  const todayFinished = today ? (today.counts.success ?? 0) + (today.counts.failure ?? 0) : 0;
+  const todayRunning = (today?.total ?? 0) - todayFinished - (today?.counts.canceled ?? 0);
   const todayHealth = healthFor(today?.counts ?? {});
   const week = days
     .slice(-7)
@@ -418,12 +421,20 @@ type DayCounts = {date: Date; counts: Partial<Record<Bucket, number>>; total: nu
 
 const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-/** This month as a calendar: one dot per day, coloured by that day's health. */
+/**
+ * A month as a calendar: one dot per day, coloured by that day's health. Arrows
+ * step back through the months the loaded history covers, and forward to today.
+ */
 const RunMonthCalendar = ({days}: {days: DayCounts[]}) => {
+  // 0 is the current month, -1 the month before, and so on.
+  const [offset, setOffset] = useState(0);
   const byKey = new Map(days.map((d) => [dayKey(d.date), d]));
   const today = startOfDay(0);
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const monthStart = new Date(today.getFullYear(), today.getMonth() + offset, 1);
+  const daysInMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate();
+  // Can't go further back than the month holding the oldest loaded day.
+  const oldest = days[0]?.date ?? today;
+  const canGoBack = monthStart > new Date(oldest.getFullYear(), oldest.getMonth(), 1);
   // Leading blanks so the 1st lands on its weekday, Monday first.
   const lead = (monthStart.getDay() + 6) % 7;
   const cells = [
@@ -437,8 +448,22 @@ const RunMonthCalendar = ({days}: {days: DayCounts[]}) => {
 
   return (
     <div className={styles.month}>
-      <div className={styles.monthTitle}>
-        {today.toLocaleDateString(undefined, {month: 'long', year: 'numeric'})}
+      <div className={styles.monthNav}>
+        <Button
+          icon={<Icon name="chevron_left" />}
+          disabled={!canGoBack}
+          onClick={() => setOffset(offset - 1)}
+          aria-label="Previous month"
+        />
+        <div className={styles.monthTitle}>
+          {monthStart.toLocaleDateString(undefined, {month: 'long', year: 'numeric'})}
+        </div>
+        <Button
+          icon={<Icon name="chevron_right" />}
+          disabled={offset === 0}
+          onClick={() => setOffset(offset + 1)}
+          aria-label="Next month"
+        />
       </div>
       <div className={styles.monthGrid}>
         {WEEKDAY_LETTERS.map((letter, i) => (
@@ -489,9 +514,134 @@ const RunMonthCalendar = ({days}: {days: DayCounts[]}) => {
   );
 };
 
-const TREND_HEIGHT = 160;
+const bucketColor = (status: RunStatus) =>
+  BUCKETS.find((b) => b.key === bucketFor(status))?.color ?? Colors.dataVizGray();
 
-const ROLLING_DAYS = 7;
+const HOUR = 3600;
+
+const formatHour = (secs: number) =>
+  new Date(secs * 1000).toLocaleTimeString(undefined, {hour: 'numeric'});
+
+/** Today's runs as bars on a midnight-to-now axis, one row per job. */
+const TodayTimeline = ({runs}: {runs: Run[]}) => {
+  const dayStart = startOfDay(0).getTime() / 1000;
+  const now = Date.now() / 1000;
+  // The axis ends on the next whole hour so the newest run isn't flush right.
+  const axisEnd = Math.ceil((now + 1) / HOUR) * HOUR;
+  const span = axisEnd - dayStart;
+  const pct = (secs: number) => `${((secs - dayStart) / span) * 100}%`;
+
+  const byJob = new Map<string, Run[]>();
+  runs
+    .filter((r) => r.startTime && r.startTime >= dayStart)
+    .forEach((r) => byJob.set(r.jobName, [...(byJob.get(r.jobName) ?? []), r]));
+  const firstStart = (list: Run[]) => Math.min(...list.map((r) => r.startTime ?? Infinity));
+  const jobs = [...byJob.entries()].sort((a, b) => firstStart(a[1]) - firstStart(b[1]));
+
+  const tickEvery = span > 12 * HOUR ? 6 * HOUR : 3 * HOUR;
+  const ticks: number[] = [];
+  for (let t = dayStart; t <= axisEnd; t += tickEvery) {
+    ticks.push(t);
+  }
+
+  return (
+    <>
+      <Legend items={BUCKETS} />
+      {jobs.length ? (
+        <div className={styles.stepRows}>
+          {jobs.map(([job, jobRuns]) => (
+            <div key={job} className={styles.tlRow}>
+              <div className={styles.stepName} title={job}>
+                {job}
+              </div>
+              <div className={styles.tlTrack}>
+                {jobRuns.map((run) => {
+                  const start = run.startTime ?? dayStart;
+                  const end = run.endTime ?? now;
+                  return (
+                    <Tooltip
+                      key={run.runId}
+                      content={
+                        <div>
+                          <strong>{run.jobName}</strong> · {run.runId.slice(0, 8)}
+                          <div>
+                            {new Date(start * 1000).toLocaleTimeString()}
+                            {run.endTime
+                              ? ` – ${new Date(end * 1000).toLocaleTimeString()}`
+                              : ' – now'}
+                            {' · '}
+                            {formatDuration(end - start)} · {run.status}
+                          </div>
+                        </div>
+                      }
+                    >
+                      <Link to={`/runs/${run.runId}`}>
+                        <div
+                          className={styles.tlBar}
+                          style={{
+                            left: pct(start),
+                            width: `${((end - start) / span) * 100}%`,
+                            background: bucketColor(run.status),
+                          }}
+                        />
+                      </Link>
+                    </Tooltip>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className={styles.muted}>No runs yet today.</div>
+      )}
+      <div className={styles.tlRow}>
+        <div />
+        <div className={styles.tlAxis}>
+          {ticks.map((t) => (
+            <span key={t} style={{left: pct(t)}}>
+              {t === ticks[ticks.length - 1] ? 'now' : formatHour(t)}
+            </span>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+};
+
+type TrendMode = 'rate' | 'timeline';
+const TREND_MODE_KEY = 'hillpointe-trend-mode';
+const TREND_MODES: {id: TrendMode; label: string; sub: string}[] = [
+  {id: 'rate', label: 'Success rate', sub: `${ROLLING_DAYS}-day rolling, last ${TREND_DAYS} days`},
+  {id: 'timeline', label: "Today's runs", sub: 'When each job ran, and for how long'},
+];
+
+/** One card that switches between the two trend charts. */
+const TrendCard = ({runs}: {runs: Run[]}) => {
+  const [mode, setMode] = useStateWithStorage<TrendMode>(TREND_MODE_KEY, (value) =>
+    TREND_MODES.some((m) => m.id === value) ? value : 'rate',
+  );
+  const current = TREND_MODES.find((m) => m.id === mode) ?? TREND_MODES[0];
+  return (
+    <div className={styles.card}>
+      <div className={styles.cardHeader}>
+        <div className={styles.cardTitle}>
+          {current?.label}
+          <span className={styles.cardSub}>{current?.sub}</span>
+        </div>
+        <ButtonGroup<TrendMode>
+          activeItems={new Set([mode])}
+          buttons={TREND_MODES.map(({id, label}) => ({id, label}))}
+          onClick={setMode}
+        />
+      </div>
+      {mode === 'rate' ? <SuccessRateTrend /> : null}
+      {mode === 'timeline' ? <TodayTimeline runs={runs} /> : null}
+    </div>
+  );
+};
+
+const TREND_HEIGHT = 160;
 
 /**
  * Rolling success rate over the last TREND_DAYS days, as a line. Each point is
@@ -521,7 +671,7 @@ const SuccessRateTrend = () => {
     runs.forEach((r) => {
       const day = byKey.get(dayKey(new Date(r.creationTime * 1000)));
       const bucket = bucketFor(r.status);
-      if (day && (bucket === 'success' || bucket === 'failure' || bucket === 'canceled')) {
+      if (day && (bucket === 'success' || bucket === 'failure')) {
         day.finished++;
         day.succeeded += bucket === 'success' ? 1 : 0;
       }
@@ -552,10 +702,7 @@ const SuccessRateTrend = () => {
     }, '');
 
   return (
-    <div className={styles.card}>
-      <div className={styles.cardTitle}>
-        Success rate<span className={styles.cardSub}>Last {TREND_DAYS} days</span>
-      </div>
+    <>
       <Box flex={{alignItems: 'baseline', gap: 12}}>
         <div className={styles.tileValue}>{pct(latest?.rate ?? null)}</div>
         <div className={styles.tileSub}>
@@ -563,6 +710,10 @@ const SuccessRateTrend = () => {
           {latest?.finished ? ` · ${latest.succeeded} of ${latest.finished} runs succeeded` : ''}
         </div>
       </Box>
+      <div className={styles.tileSub}>
+        Each point is the share of runs that succeeded in the {ROLLING_DAYS} days ending on that
+        day, so one bad run nudges the line instead of dropping it to zero.
+      </div>
       <div className={styles.plot}>
         <div className={styles.gridline}>
           <span className={styles.gridLabel}>100%</span>
@@ -612,11 +763,13 @@ const SuccessRateTrend = () => {
       <div className={styles.xLabels}>
         {days.map((day, i) => (
           <div key={day.date.toISOString()} className={styles.xLabel}>
-            {(TREND_DAYS - 1 - i) % 7 === 0 ? day.date.getDate() : ''}
+            {(TREND_DAYS - 1 - i) % 7 === 0
+              ? day.date.toLocaleDateString(undefined, {month: 'short', day: 'numeric'})
+              : ''}
           </div>
         ))}
       </div>
-    </div>
+    </>
   );
 };
 

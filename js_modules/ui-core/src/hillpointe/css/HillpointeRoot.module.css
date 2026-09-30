@@ -65,6 +65,14 @@
   font-weight: 600;
 }
 
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
 .cardSub {
   color: var(--color-text-lighter);
   font-size: 12px;
@@ -95,6 +103,8 @@
 .plot {
   position: relative;
   height: 160px;
+  /* Room for the top grid label, which sits just above the plot. */
+  margin-top: 8px;
   display: flex;
   align-items: flex-end;
   gap: 2px;
@@ -173,11 +183,12 @@
   font-size: 11px;
 }
 
+/* Labels sit on every 7th column, so they may spill past their own cell. */
 .xLabel {
   flex: 1 1 0;
   min-width: 0;
   text-align: center;
-  overflow: hidden;
+  overflow: visible;
   white-space: nowrap;
 }
 
@@ -288,42 +299,61 @@
 .miniTile {
   background: var(--color-background-lighter);
   border-radius: 6px;
-  padding: 10px 12px;
+  padding: 6px 10px;
   min-width: 0;
 }
 
+.miniTile .tileLabel {
+  font-size: 11px;
+}
+
+.miniTile .jobStatValue {
+  font-size: 15px;
+}
+
 .month {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.monthNav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 8px;
 }
 
 .monthTitle {
   color: var(--color-text-light);
-  font-size: 12px;
-  margin-bottom: 6px;
+  font-size: 13px;
 }
 
 /* Tooltip wraps each dot in a span; centre the span in its grid cell. */
 .monthGrid {
   display: grid;
-  grid-template-columns: repeat(7, 26px);
-  gap: 4px;
+  grid-template-columns: repeat(7, 36px);
+  gap: 5px;
   justify-items: center;
   align-items: center;
 }
 
 .calHead {
   color: var(--color-text-lighter);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .monthDot {
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -333,4 +363,44 @@
 
 .monthFuture {
   opacity: 0.35;
+}
+
+.tlRow {
+  display: grid;
+  grid-template-columns: minmax(80px, 160px) 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.tlTrack {
+  position: relative;
+  height: 14px;
+  background: var(--color-background-lighter);
+  border-radius: 2px;
+}
+
+.tlBar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  min-width: 3px;
+  border-radius: 2px;
+}
+
+.tlBar:hover {
+  opacity: 0.7;
+}
+
+.tlAxis {
+  position: relative;
+  height: 14px;
+  color: var(--color-text-lighter);
+  font-size: 11px;
+}
+
+.tlAxis > span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }

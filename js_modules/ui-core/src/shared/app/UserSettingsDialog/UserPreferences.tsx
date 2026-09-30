@@ -1,4 +1,13 @@
-import {Box, Button, Checkbox, Heading, Icon, Tooltip} from '@dagster-io/ui-components';
+import {
+  Box,
+  Button,
+  Checkbox,
+  Colors,
+  FontFamily,
+  Heading,
+  Icon,
+  Tooltip,
+} from '@dagster-io/ui-components';
 import React, {useContext} from 'react';
 
 import {SHORTCUTS_STORAGE_KEY} from '../../../app/ShortcutHandler';
@@ -117,6 +126,41 @@ export const UserPreferences = ({
           onChange={toggleShowAssetsWithoutDefinitions}
         />
       </Box>
+      <Box padding={{vertical: 8}} flex={{justifyContent: 'space-between', alignItems: 'center'}}>
+        <div>Build</div>
+        <BuildInfo />
+      </Box>
     </>
+  );
+};
+
+// Set by the wheel-building workflow; absent in local development.
+const BUILD_COMMIT = process.env.NEXT_PUBLIC_BUILD_COMMIT;
+const BUILD_REPO = process.env.NEXT_PUBLIC_BUILD_REPO;
+const BUILD_TIME = process.env.NEXT_PUBLIC_BUILD_TIME;
+
+/** Which commit this UI was built from, so a running site can be matched to the code. */
+const BuildInfo = () => {
+  if (!BUILD_COMMIT) {
+    return <span style={{color: Colors.textLight()}}>Local development build</span>;
+  }
+  const short = BUILD_COMMIT.slice(0, 7);
+  const built = BUILD_TIME ? new Date(BUILD_TIME).toLocaleString() : null;
+  return (
+    <Box flex={{direction: 'row', alignItems: 'center', gap: 8}}>
+      {BUILD_REPO ? (
+        <a
+          href={`https://github.com/${BUILD_REPO}/commit/${BUILD_COMMIT}`}
+          target="_blank"
+          rel="noreferrer"
+          style={{fontFamily: FontFamily.monospace}}
+        >
+          {short}
+        </a>
+      ) : (
+        <span style={{fontFamily: FontFamily.monospace}}>{short}</span>
+      )}
+      {built ? <span style={{color: Colors.textLight()}}>built {built}</span> : null}
+    </Box>
   );
 };

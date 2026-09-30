@@ -33,7 +33,12 @@ jobs:
       - name: Build production JS bundle
         env:
           YARN_ENABLE_IMMUTABLE_INSTALLS: 'false'
-        run: bash python_modules/dagster-webserver/build_js.sh
+          # Shown under Settings in the UI so a running site can be matched to a commit.
+          NEXT_PUBLIC_BUILD_COMMIT: ${{ github.sha }}
+          NEXT_PUBLIC_BUILD_REPO: ${{ github.repository }}
+        run: |
+          export NEXT_PUBLIC_BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          bash python_modules/dagster-webserver/build_js.sh
 
       - name: Install build tool
         run: pip install build

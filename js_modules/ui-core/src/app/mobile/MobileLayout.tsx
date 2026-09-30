@@ -10,7 +10,10 @@ const MobilePipelines = lazy(() => import('./MobilePipelines'));
 
 // Phone layout: a top bar, the page, and a bottom tab bar. Mobile-only screens
 // live under /m/*; every other route shows the regular page inside this shell.
-const TABS = [{to: '/m/pipelines', label: 'Pipelines', icon: 'job' as const}];
+const TABS = [
+  {to: '/m/pipelines', label: 'Pipelines', icon: 'job' as const},
+  {to: '/overview', label: 'Overview', icon: 'timeline' as const},
+];
 
 export const MobileLayout = ({children}: {children: ReactNode}) => {
   const {pathname} = useLocation();
@@ -37,7 +40,7 @@ export const MobileLayout = ({children}: {children: ReactNode}) => {
           }
         >
           <Switch>
-            <Route exact path={['/', '/overview', '/hillpointe']}>
+            <Route exact path={['/', '/hillpointe']}>
               <Redirect to="/m/pipelines" />
             </Route>
             <Route path="/m/pipelines">

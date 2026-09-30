@@ -42,6 +42,26 @@ export type HillpointeRunMetricsQuery = {
           creationTime: number;
           startTime: number | null;
           endTime: number | null;
+        }>;
+      };
+};
+
+export type HillpointeRunStatsQueryVariables = Exact<{
+  after: number;
+  limit: number;
+}>;
+
+export type HillpointeRunStatsQuery = {
+  __typename: 'Query';
+  runsOrError:
+    | {__typename: 'InvalidPipelineRunsFilterError'}
+    | {__typename: 'PythonError'}
+    | {
+        __typename: 'Runs';
+        results: Array<{
+          __typename: 'Run';
+          id: string;
+          runId: string;
           stats:
             | {__typename: 'PythonError'}
             | {

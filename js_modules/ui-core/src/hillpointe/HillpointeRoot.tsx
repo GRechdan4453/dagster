@@ -23,6 +23,8 @@ import {
   HillpointeRunHistoryQueryVariables,
   HillpointeRunMetricsQuery,
   HillpointeRunMetricsQueryVariables,
+  HillpointeRunStatsQuery,
+  HillpointeRunStatsQueryVariables,
   HillpointeRunStepStatsQuery,
   HillpointeRunStepStatsQueryVariables,
 } from './types/HillpointeRoot.types';
@@ -48,6 +50,10 @@ type Run = Extract<
   HillpointeRunMetricsQuery['runsOrError'],
   {__typename: 'Runs'}
 >['results'][number];
+
+type RunStats = {stepsSucceeded: number; stepsFailed: number; materializations: number};
+/** Stats keyed by run id; null until the stats query has answered. */
+type StatsByRun = Map<string, RunStats> | null;
 
 // Status buckets. Colours are theme tokens, so every chart follows the selected theme.
 type Bucket = 'success' | 'failure' | 'canceled' | 'inProgress' | 'queued';
@@ -124,6 +130,25 @@ export const HillpointeRoot = () => {
     [data],
   );
 
+  const statsResult = useQuery<HillpointeRunStatsQuery, HillpointeRunStatsQueryVariables>(
+    HILLPOINTE_RUN_STATS_QUERY,
+    {variables: {after: monthStart.getTime() / 1000, limit: MONTH_RUN_LIMIT}},
+  );
+  useQueryRefreshAtInterval(statsResult, FIFTEEN_SECONDS);
+  const statsByRun: StatsByRun = useMemo(() => {
+    const result = statsResult.data?.runsOrError;
+    if (result?.__typename !== 'Runs') {
+      return null;
+    }
+    const map = new Map<string, RunStats>();
+    result.results.forEach((r) => {
+      if (r.stats.__typename === 'RunStatsSnapshot') {
+        map.set(r.runId, r.stats);
+      }
+    });
+    return map;
+  }, [statsResult.data]);
+
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const selectedRun = runs.find((r) => r.runId === selectedRunId) ?? runs[0] ?? null;
 
@@ -151,7 +176,7 @@ export const HillpointeRoot = () => {
         <Box flex={{justifyContent: 'flex-end'}}>
           <QueryRefreshCountdown refreshState={refreshState} />
         </Box>
-        <SummaryTiles runs={runs} />
+        <SummaryTiles runs={runs} statsByRun={statsByRun} />
         <div className={styles.chartGrid}>
           <TrendCard runs={runs} />
           <RunStatusBlock />
@@ -159,12 +184,14 @@ export const HillpointeRoot = () => {
         {selectedRun ? (
           <RunBreakdown
             run={selectedRun}
+            stats={statsByRun?.get(selectedRun.runId) ?? null}
             isLatest={selectedRun === runs[0]}
             onShowLatest={() => setSelectedRunId(null)}
           />
         ) : null}
         <RunsTable
           runs={runs}
+          statsByRun={statsByRun}
           selectedRunId={selectedRun?.runId ?? null}
           onSelect={setSelectedRunId}
         />
@@ -187,7 +214,7 @@ const Tile = ({label, value, sub}: {label: string; value: string; sub?: string})
   </div>
 );
 
-const SummaryTiles = ({runs}: {runs: Run[]}) => {
+const SummaryTiles = ({runs, statsByRun}: {runs: Run[]; statsByRun: StatsByRun}) => {
   const monthLabel = new Date().toLocaleDateString(undefined, {month: 'long', year: 'numeric'});
   const counts = {success: 0, failure: 0, canceled: 0, inProgress: 0, queued: 0};
   runs.forEach((r) => counts[bucketFor(r.status)]++);
@@ -198,10 +225,9 @@ const SummaryTiles = ({runs}: {runs: Run[]}) => {
     .map((r) => durationSec(r.startTime, r.endTime))
     .filter((d): d is number => d !== null);
   const avg = durations.length ? durations.reduce((a, b) => a + b, 0) / durations.length : null;
-  const materializations = runs.reduce(
-    (sum, r) => sum + (r.stats.__typename === 'RunStatsSnapshot' ? r.stats.materializations : 0),
-    0,
-  );
+  const materializations = statsByRun
+    ? runs.reduce((sum, r) => sum + (statsByRun.get(r.runId)?.materializations ?? 0), 0)
+    : null;
 
   return (
     <div className={styles.tiles}>
@@ -223,7 +249,11 @@ const SummaryTiles = ({runs}: {runs: Run[]}) => {
         value={`${counts.inProgress + counts.queued}`}
         sub={`${counts.inProgress} running, ${counts.queued} queued`}
       />
-      <Tile label="Materializations" value={`${materializations}`} sub="This month" />
+      <Tile
+        label="Materializations"
+        value={materializations === null ? '…' : `${materializations}`}
+        sub="This month"
+      />
     </div>
   );
 };
@@ -790,10 +820,12 @@ const SuccessRateTrend = () => {
 
 const RunBreakdown = ({
   run,
+  stats,
   isLatest,
   onShowLatest,
 }: {
   run: Run;
+  stats: RunStats | null;
   isLatest: boolean;
   onShowLatest: () => void;
 }) => {
@@ -809,7 +841,6 @@ const RunBreakdown = ({
       .sort((a, b) => (b.duration ?? 0) - (a.duration ?? 0));
   }, [data]);
   const max = Math.max(1, ...steps.map((s) => s.duration ?? 0));
-  const stats = run.stats.__typename === 'RunStatsSnapshot' ? run.stats : null;
   const stepStatuses = Object.entries(STEP_COLOR).map(([status, color]) => ({
     label: status.charAt(0) + status.slice(1).toLowerCase().replace('_', ' '),
     color,
@@ -875,11 +906,12 @@ const RunBreakdown = ({
 
 interface SelectableProps {
   runs: Run[];
+  statsByRun: StatsByRun;
   selectedRunId: string | null;
   onSelect: (runId: string) => void;
 }
 
-const RunsTable = ({runs, selectedRunId, onSelect}: SelectableProps) => (
+const RunsTable = ({runs, statsByRun, selectedRunId, onSelect}: SelectableProps) => (
   <div className={styles.card}>
     <div className={styles.cardTitle}>
       Runs this month
@@ -903,7 +935,7 @@ const RunsTable = ({runs, selectedRunId, onSelect}: SelectableProps) => (
         </thead>
         <tbody>
           {runs.slice(0, TABLE_ROWS).map((run) => {
-            const stats = run.stats.__typename === 'RunStatsSnapshot' ? run.stats : null;
+            const stats = statsByRun?.get(run.runId) ?? null;
             return (
               <tr
                 key={run.runId}
@@ -921,8 +953,14 @@ const RunsTable = ({runs, selectedRunId, onSelect}: SelectableProps) => (
                 </td>
                 <td>{new Date(run.creationTime * 1000).toLocaleString()}</td>
                 <td>{formatDuration(durationSec(run.startTime, run.endTime))}</td>
-                <td>{stats ? `${stats.stepsSucceeded} / ${stats.stepsFailed}` : '—'}</td>
-                <td>{stats?.materializations ?? '—'}</td>
+                <td>
+                  {stats
+                    ? `${stats.stepsSucceeded} / ${stats.stepsFailed}`
+                    : statsByRun
+                      ? '—'
+                      : '…'}
+                </td>
+                <td>{stats ? stats.materializations : statsByRun ? '—' : '…'}</td>
               </tr>
             );
           })}
@@ -944,6 +982,21 @@ export const HILLPOINTE_RUN_METRICS_QUERY = gql`
           creationTime
           startTime
           endTime
+        }
+      }
+    }
+  }
+`;
+
+// Per-run stats come from the event log and are slow for a whole month of
+// runs, so they load separately and fill in after the page has rendered.
+export const HILLPOINTE_RUN_STATS_QUERY = gql`
+  query HillpointeRunStatsQuery($after: Float!, $limit: Int!) {
+    runsOrError(filter: {createdAfter: $after}, limit: $limit) {
+      ... on Runs {
+        results {
+          id
+          runId
           stats {
             ... on RunStatsSnapshot {
               id

@@ -95,6 +95,9 @@ export const ContentRoot = memo(() => {
           <Route path="/hillpointe">
             <HillpointeRoot />
           </Route>
+          <Route path="/m">
+            <Redirect to="/overview" />
+          </Route>
           <Route path="*" isNestingRoute>
             <FallthroughRoot />
           </Route>

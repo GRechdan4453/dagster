@@ -6,7 +6,7 @@ import {useStateWithStorage} from '../../hooks/useStateWithStorage';
 // Phone-sized screens: the nav starts collapsed and opens as an overlay.
 const SMALL_SCREEN_QUERY = '(max-width: 768px)';
 
-const useIsSmallScreen = () => {
+export const useIsSmallScreen = () => {
   const [matches, setMatches] = useState(() => window.matchMedia(SMALL_SCREEN_QUERY).matches);
   useEffect(() => {
     const matcher = window.matchMedia(SMALL_SCREEN_QUERY);

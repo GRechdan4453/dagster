@@ -1,7 +1,8 @@
 import {useFullScreen} from './AppTopNav/AppTopNavContext';
 import {useJobStateForNav} from './AppTopNav/useJobStateForNav';
+import {MobileLayout} from './mobile/MobileLayout';
 import {AppContainer} from './navigation/AppContainer';
-import {NavCollapseProvider} from './navigation/NavCollapseProvider';
+import {NavCollapseProvider, useIsSmallScreen} from './navigation/NavCollapseProvider';
 import {getBottomGroups, getTopGroups} from './navigation/mainNavigationItems';
 import {useFeatureFlags} from './useFeatureFlags';
 
@@ -17,6 +18,11 @@ export const AppLayout = ({banner, children}: Props) => {
 
   const topGroups = getTopGroups({featureFlags, jobState});
   const bottomGroups = getBottomGroups({featureFlags, jobState});
+  const isSmallScreen = useIsSmallScreen();
+
+  if (isSmallScreen) {
+    return <MobileLayout>{children}</MobileLayout>;
+  }
 
   return (
     <NavCollapseProvider>

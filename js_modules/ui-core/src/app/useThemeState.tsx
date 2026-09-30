@@ -9,6 +9,8 @@ export const themeSet = new Set([
   DagsterTheme.DarkNoRedGreen,
   DagsterTheme.SystemNoRedGreen,
   DagsterTheme.Custom1,
+  DagsterTheme.AlinosLight,
+  DagsterTheme.AlinosDark,
 ]);
 
 export const useThemeState = () => {

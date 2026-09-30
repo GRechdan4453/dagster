@@ -37,7 +37,9 @@ import {useDocumentTitle} from '../hooks/useDocumentTitle';
 import {useStateWithStorage} from '../hooks/useStateWithStorage';
 import {RunStatusTag} from '../runs/RunStatusTag';
 
-const RUN_LIMIT = 100;
+// Runs are scoped to the current month; the limit is a safety cap.
+const MONTH_RUN_LIMIT = 5000;
+const TABLE_ROWS = 50;
 const TREND_DAYS = 30;
 const ROLLING_DAYS = 7;
 const HISTORY_DAYS = 90;
@@ -106,9 +108,14 @@ export const HillpointeRoot = () => {
   useTrackPageView();
   useDocumentTitle('Hillpointe');
 
+  // Fixed for the life of the page so the query variables stay stable.
+  const [monthStart] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const queryResult = useQuery<HillpointeRunMetricsQuery, HillpointeRunMetricsQueryVariables>(
     HILLPOINTE_RUN_METRICS_QUERY,
-    {variables: {limit: RUN_LIMIT}},
+    {variables: {after: monthStart.getTime() / 1000, limit: MONTH_RUN_LIMIT}},
   );
   const refreshState = useQueryRefreshAtInterval(queryResult, FIFTEEN_SECONDS);
   const {data, loading} = queryResult;
@@ -147,7 +154,7 @@ export const HillpointeRoot = () => {
         <SummaryTiles runs={runs} />
         <div className={styles.chartGrid}>
           <TrendCard runs={runs} />
-          <RunStatusBlock />
+          <RunStatusBlock runs={runs} />
         </div>
         {selectedRun ? (
           <RunBreakdown
@@ -181,6 +188,7 @@ const Tile = ({label, value, sub}: {label: string; value: string; sub?: string})
 );
 
 const SummaryTiles = ({runs}: {runs: Run[]}) => {
+  const monthLabel = new Date().toLocaleDateString(undefined, {month: 'long', year: 'numeric'});
   const counts = {success: 0, failure: 0, canceled: 0, inProgress: 0, queued: 0};
   runs.forEach((r) => counts[bucketFor(r.status)]++);
   // Canceled runs are neither passes nor failures, so they sit outside the rate.
@@ -197,11 +205,16 @@ const SummaryTiles = ({runs}: {runs: Run[]}) => {
 
   return (
     <div className={styles.tiles}>
-      <Tile label="Runs" value={`${runs.length}`} sub={`Most recent ${RUN_LIMIT}`} />
+      <Tile label="Runs" value={`${runs.length}`} sub={monthLabel} />
       <Tile
         label="Success rate"
         value={finished ? `${Math.round((counts.success / finished) * 100)}%` : '—'}
-        sub={`${counts.success} of ${finished} finished`}
+        sub={[
+          `${counts.success} passed`,
+          `${counts.failure} failed`,
+          `${counts.canceled} canceled`,
+          `${counts.inProgress + counts.queued} running`,
+        ].join(' · ')}
       />
       <Tile label="Failed" value={`${counts.failure}`} sub={`${counts.canceled} canceled`} />
       <Tile label="Avg duration" value={formatDuration(avg)} sub="Finished runs" />
@@ -210,7 +223,7 @@ const SummaryTiles = ({runs}: {runs: Run[]}) => {
         value={`${counts.inProgress + counts.queued}`}
         sub={`${counts.inProgress} running, ${counts.queued} queued`}
       />
-      <Tile label="Materializations" value={`${materializations}`} sub="Across these runs" />
+      <Tile label="Materializations" value={`${materializations}`} sub="This month" />
     </div>
   );
 };
@@ -275,7 +288,7 @@ const startOfDay = (daysAgo: number) => {
   return d;
 };
 
-const RunStatusBlock = () => {
+const RunStatusBlock = ({runs: monthRuns}: {runs: Run[]}) => {
   // Fixed for the life of the page so the query variables stay stable.
   const [historyStart] = useState(() => startOfDay(HISTORY_DAYS - 1));
   const [yesterdayStart] = useState(() => startOfDay(1));
@@ -344,6 +357,33 @@ const RunStatusBlock = () => {
   const todayFinished = today ? (today.counts.success ?? 0) + (today.counts.failure ?? 0) : 0;
   const todayRunning = (today?.total ?? 0) - todayFinished - (today?.counts.canceled ?? 0);
   const todayHealth = healthFor(today?.counts ?? {});
+
+  const statusSlices = useMemo(() => {
+    const counts: Partial<Record<Bucket, number>> = {};
+    monthRuns.forEach((r) => {
+      const b = bucketFor(r.status);
+      counts[b] = (counts[b] ?? 0) + 1;
+    });
+    return BUCKETS.filter((b) => counts[b.key]).map((b) => ({
+      label: b.label,
+      value: counts[b.key] ?? 0,
+      color: b.color,
+    }));
+  }, [monthRuns]);
+
+  const jobSlices = useMemo(() => {
+    const byJob = new Map<string, number>();
+    monthRuns.forEach((r) => byJob.set(r.jobName, (byJob.get(r.jobName) ?? 0) + 1));
+    const sorted = [...byJob.entries()].sort((a, b) => b[1] - a[1]);
+    const top = sorted.slice(0, JOB_SLICES);
+    const rest = sorted.slice(JOB_SLICES).reduce((sum, [, n]) => sum + n, 0);
+    const slices = top.map(([job, n], i) => ({
+      label: job,
+      value: n,
+      color: JOB_COLORS[i % JOB_COLORS.length] ?? Colors.dataVizGray(),
+    }));
+    return rest ? [...slices, {label: 'Other', value: rest, color: Colors.dataVizGray()}] : slices;
+  }, [monthRuns]);
   const week = days
     .slice(-7)
     .reduce(
@@ -365,50 +405,56 @@ const RunStatusBlock = () => {
         </div>
       </div>
       <div className={styles.statusBody}>
-        <div className={styles.statGrid}>
-          <div className={styles.miniTile}>
-            <div className={styles.tileLabel}>Row count yesterday</div>
-            <div className={styles.jobStatValue}>
-              {rowCounts.yesterday?.toLocaleString() ?? '—'}
+        <div className={styles.statusLeft}>
+          <div className={styles.statGrid}>
+            <div className={styles.miniTile}>
+              <div className={styles.tileLabel}>Row count yesterday</div>
+              <div className={styles.jobStatValue}>
+                {rowCounts.yesterday?.toLocaleString() ?? '—'}
+              </div>
+            </div>
+            <div className={styles.miniTile}>
+              <div className={styles.tileLabel}>Row count today</div>
+              <div className={styles.jobStatValue}>{rowCounts.today?.toLocaleString() ?? '—'}</div>
+            </div>
+            <div className={styles.miniTile}>
+              <div className={styles.tileLabel}>Today&apos;s status</div>
+              <div className={styles.jobStatValue} style={{color: HEALTH_TEXT[todayHealth]}}>
+                {today?.total
+                  ? `${today.counts.success ?? 0}/${todayFinished} passed${
+                      todayRunning ? `, ${todayRunning} running` : ''
+                    }`
+                  : 'No runs'}
+              </div>
+            </div>
+            <div className={styles.miniTile}>
+              <div className={styles.tileLabel}>Runs, last 7 days</div>
+              <div className={styles.jobStatValue}>{week.total}</div>
+            </div>
+            <div className={styles.miniTile}>
+              <div className={styles.tileLabel}>Failed, last 7 days</div>
+              <div
+                className={styles.jobStatValue}
+                style={{color: week.failed ? Colors.textRed() : undefined}}
+              >
+                {week.failed}
+              </div>
+            </div>
+            <div className={styles.miniTile}>
+              <div className={styles.tileLabel}>Last failure</div>
+              <div className={styles.jobStatValue}>
+                {lastFailure
+                  ? new Date(lastFailure.creationTime * 1000).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                    })
+                  : 'None'}
+              </div>
             </div>
           </div>
-          <div className={styles.miniTile}>
-            <div className={styles.tileLabel}>Row count today</div>
-            <div className={styles.jobStatValue}>{rowCounts.today?.toLocaleString() ?? '—'}</div>
-          </div>
-          <div className={styles.miniTile}>
-            <div className={styles.tileLabel}>Today&apos;s status</div>
-            <div className={styles.jobStatValue} style={{color: HEALTH_TEXT[todayHealth]}}>
-              {today?.total
-                ? `${today.counts.success ?? 0}/${todayFinished} passed${
-                    todayRunning ? `, ${todayRunning} running` : ''
-                  }`
-                : 'No runs'}
-            </div>
-          </div>
-          <div className={styles.miniTile}>
-            <div className={styles.tileLabel}>Runs, last 7 days</div>
-            <div className={styles.jobStatValue}>{week.total}</div>
-          </div>
-          <div className={styles.miniTile}>
-            <div className={styles.tileLabel}>Failed, last 7 days</div>
-            <div
-              className={styles.jobStatValue}
-              style={{color: week.failed ? Colors.textRed() : undefined}}
-            >
-              {week.failed}
-            </div>
-          </div>
-          <div className={styles.miniTile}>
-            <div className={styles.tileLabel}>Last failure</div>
-            <div className={styles.jobStatValue}>
-              {lastFailure
-                ? new Date(lastFailure.creationTime * 1000).toLocaleDateString(undefined, {
-                    month: 'short',
-                    day: 'numeric',
-                  })
-                : 'None'}
-            </div>
+          <div className={styles.pies}>
+            <Donut title="Runs by status" slices={statusSlices} />
+            <Donut title="Runs by job" slices={jobSlices} />
           </div>
         </div>
         <RunMonthCalendar days={days} />
@@ -418,6 +464,79 @@ const RunStatusBlock = () => {
 };
 
 type DayCounts = {date: Date; counts: Partial<Record<Bucket, number>>; total: number};
+
+const JOB_SLICES = 4;
+const JOB_COLORS = [
+  Colors.dataVizBlue(),
+  Colors.dataVizBlueAlt(),
+  Colors.dataVizGreen(),
+  Colors.dataVizYellow(),
+];
+// Circle radius chosen so the circumference is 100, making dash lengths percentages.
+const DONUT_R = 15.915;
+
+type Slice = {label: string; value: number; color: string};
+
+/** A small donut with its legend beside it. */
+const Donut = ({title, slices}: {title: string; slices: Slice[]}) => {
+  const total = slices.reduce((sum, x) => sum + x.value, 0);
+  let offset = 0;
+  return (
+    <div className={styles.pie}>
+      <div className={styles.tileLabel}>{title}</div>
+      <div className={styles.pieBody}>
+        <svg viewBox="0 0 42 42" className={styles.pieSvg} role="img" aria-label={title}>
+          <circle cx={21} cy={21} r={DONUT_R} fill="none" stroke={EMPTY_DAY} strokeWidth={6} />
+          {slices.map((slice) => {
+            const pct = total ? (slice.value / total) * 100 : 0;
+            const dash = `${pct} ${100 - pct}`;
+            const el = (
+              <circle
+                key={slice.label}
+                cx={21}
+                cy={21}
+                r={DONUT_R}
+                fill="none"
+                stroke={slice.color}
+                strokeWidth={6}
+                strokeDasharray={dash}
+                strokeDashoffset={25 - offset}
+              >
+                <title>
+                  {slice.label}: {slice.value} ({Math.round(pct)}%)
+                </title>
+              </circle>
+            );
+            offset += pct;
+            return el;
+          })}
+          <text
+            x={21}
+            y={21}
+            className={styles.pieCenter}
+            textAnchor="middle"
+            dominantBaseline="central"
+          >
+            {total}
+          </text>
+        </svg>
+        <div className={styles.pieLegend}>
+          {slices.map((slice) => (
+            <div key={slice.label} className={styles.legendItem}>
+              <span className={styles.swatch} style={{background: slice.color}} />
+              <span className={styles.pieLegendLabel} title={slice.label}>
+                {slice.label}
+              </span>
+              <span className={styles.muted}>
+                {total ? Math.round((slice.value / total) * 100) : 0}%
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
@@ -548,7 +667,7 @@ const TodayTimeline = ({runs}: {runs: Run[]}) => {
     <>
       <Legend items={BUCKETS} />
       {jobs.length ? (
-        <div className={styles.stepRows}>
+        <div className={styles.tlRows}>
           {jobs.map(([job, jobRuns]) => (
             <div key={job} className={styles.tlRow}>
               <div className={styles.stepName} title={job}>
@@ -867,7 +986,11 @@ interface SelectableProps {
 const RunsTable = ({runs, selectedRunId, onSelect}: SelectableProps) => (
   <div className={styles.card}>
     <div className={styles.cardTitle}>
-      All runs<span className={styles.cardSub}>Click a row to inspect it above</span>
+      Runs this month
+      <span className={styles.cardSub}>
+        Latest {Math.min(TABLE_ROWS, runs.length)} of {runs.length} · click a row to inspect it
+        above
+      </span>
     </div>
     <div className={styles.tableWrap}>
       <Table>
@@ -883,7 +1006,7 @@ const RunsTable = ({runs, selectedRunId, onSelect}: SelectableProps) => (
           </tr>
         </thead>
         <tbody>
-          {runs.map((run) => {
+          {runs.slice(0, TABLE_ROWS).map((run) => {
             const stats = run.stats.__typename === 'RunStatsSnapshot' ? run.stats : null;
             return (
               <tr
@@ -914,8 +1037,8 @@ const RunsTable = ({runs, selectedRunId, onSelect}: SelectableProps) => (
 );
 
 export const HILLPOINTE_RUN_METRICS_QUERY = gql`
-  query HillpointeRunMetricsQuery($limit: Int!) {
-    runsOrError(limit: $limit) {
+  query HillpointeRunMetricsQuery($after: Float!, $limit: Int!) {
+    runsOrError(filter: {createdAfter: $after}, limit: $limit) {
       ... on Runs {
         results {
           id

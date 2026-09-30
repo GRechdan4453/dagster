@@ -6,6 +6,8 @@ export enum DagsterTheme {
   DarkNoRedGreen = 'DarkNoRedGreen',
   SystemNoRedGreen = 'SystemNoRedGreen',
   Custom1 = 'Custom1',
+  AlinosLight = 'AlinosLight',
+  AlinosDark = 'AlinosDark',
 }
 
 export const themeToClassName = {
@@ -16,6 +18,8 @@ export const themeToClassName = {
   [DagsterTheme.DarkNoRedGreen]: 'themeDarkNoRedGreen',
   [DagsterTheme.SystemNoRedGreen]: 'themeSystemNoRedGreen',
   [DagsterTheme.Custom1]: 'themeCustom1',
+  [DagsterTheme.AlinosLight]: 'themeAlinosLight',
+  [DagsterTheme.AlinosDark]: 'themeAlinosDark',
 };
 
 export const DAGSTER_THEME_KEY = 'dagster-theme';

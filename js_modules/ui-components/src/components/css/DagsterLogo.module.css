@@ -33,7 +33,8 @@
   }
 
   :global(.themeLight) .logo,
-  :global(.themeLightNoRedGreen) .logo {
+  :global(.themeLightNoRedGreen) .logo,
+  :global(.themeAlinosLight) .logo {
     --dagster-logo-mark: var(--color-core-blue500);
     --dagster-logo-wordmark: var(--color-core-gray990);
   }
@@ -44,7 +45,8 @@
 .logo.reversed,
 :global(.themeDark) .logo,
 :global(.themeDarkNoRedGreen) .logo,
-:global(.themeCustom1) .logo {
+:global(.themeCustom1) .logo,
+:global(.themeAlinosDark) .logo {
   --dagster-logo-mark: var(--color-core-blue200);
   --dagster-logo-wordmark: var(--color-core-white);
 }

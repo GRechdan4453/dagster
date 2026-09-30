@@ -140,12 +140,38 @@ CUSTOM_1_EXTRAS = """
 }
 """
 
+# "Alinos light" / "Alinos dark" -- the Alinos token file verbatim, including
+# its teal --pos and its --neg, with no status-colour shifts. Chart fills follow
+# --pos / --neg too.
+ALINOS_LIGHT = {
+    **LIGHT,
+    "pos": "hsl(176 50% 32%)",
+    "pos_hover": "hsl(176 50% 27%)",
+    "neg": "hsl(0 64% 46%)",
+    "neg_hover": "hsl(0 64% 41%)",
+    "viz_green": None,
+    "viz_red": None,
+    "viz_yellow": None,
+}
+
+ALINOS_DARK = {
+    **DARK,
+    "pos": "hsl(176 68% 70%)",
+    "pos_hover": "hsl(176 68% 76%)",
+    "neg": "hsl(0 100% 74%)",
+    "neg_hover": "hsl(0 100% 80%)",
+}
+
 # hue-only forms, for building translucent fills
 HUE = {
     "light": {"pos": "145 60% 27%", "neg": "0 70% 44%", "warn": "48 66% 40%",
               "brand": "211 74% 45%", "brand_2": "211 72% 36%", "gray": "211 26% 18%"},
     "dark": {"pos": "145 65% 62%", "neg": "0 85% 68%", "warn": "48 46% 61%",
              "brand": "211 87% 69%", "brand_2": "211 60% 45%", "gray": "41 42% 93%"},
+    "alinos_light": {"pos": "176 50% 32%", "neg": "0 64% 46%", "warn": "48 66% 40%",
+                     "brand": "211 74% 45%", "brand_2": "211 72% 36%", "gray": "211 26% 18%"},
+    "alinos_dark": {"pos": "176 68% 70%", "neg": "0 100% 74%", "warn": "48 46% 61%",
+                    "brand": "211 87% 69%", "brand_2": "211 60% 45%", "gray": "41 42% 93%"},
     "custom1": {"pos": "145 70% 50%", "neg": "0 85% 62%", "warn": "48 95% 55%",
                  "brand": "35 95% 58%", "brand_2": "25 85% 45%", "gray": "40 30% 90%"},
 }
@@ -302,6 +328,8 @@ def main():
     out.append(".themeLight, .themeLightNoRedGreen {\n" + block(LIGHT, "light") + "}\n")
     out.append(".themeDark, .themeDarkNoRedGreen {\n" + block(DARK, "dark") + "}\n")
     out.append(".themeCustom1 {\n" + block(CUSTOM_1, "dark", "custom1") + "}\n")
+    out.append(".themeAlinosLight {\n" + block(ALINOS_LIGHT, "light", "alinos_light") + "}\n")
+    out.append(".themeAlinosDark {\n" + block(ALINOS_DARK, "dark", "alinos_dark") + "}\n")
     out.append(CUSTOM_1_EXTRAS)
 
     return "\n".join(out)

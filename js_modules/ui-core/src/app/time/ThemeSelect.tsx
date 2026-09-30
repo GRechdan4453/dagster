@@ -50,6 +50,16 @@ export const ThemeSelect = ({theme, onChange}: Props) => {
       label: 'Custom theme 1',
       icon: 'star',
     },
+    {
+      key: DagsterTheme.AlinosLight,
+      label: 'Alinos light',
+      icon: 'sun',
+    },
+    {
+      key: DagsterTheme.AlinosDark,
+      label: 'Alinos dark',
+      icon: 'nightlight',
+    },
   ];
 
   const activeItem = items.find(({key}) => key === theme);

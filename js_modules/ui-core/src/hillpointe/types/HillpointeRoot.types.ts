@@ -22,6 +22,7 @@ export type RunStatus =
 export type StepEventStatus = 'FAILURE' | 'IN_PROGRESS' | 'SKIPPED' | 'SUCCESS';
 
 export type HillpointeRunMetricsQueryVariables = Exact<{
+  after: number;
   limit: number;
 }>;
 

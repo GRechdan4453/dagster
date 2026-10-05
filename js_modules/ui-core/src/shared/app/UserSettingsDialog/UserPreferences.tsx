@@ -140,7 +140,7 @@ const BUILD_REPO = process.env.NEXT_PUBLIC_BUILD_REPO;
 const BUILD_TIME = process.env.NEXT_PUBLIC_BUILD_TIME;
 
 /** Which commit this UI was built from, so a running site can be matched to the code. */
-const BuildInfo = () => {
+export const BuildInfo = () => {
   if (!BUILD_COMMIT) {
     return <span style={{color: Colors.textLight()}}>Local development build</span>;
   }

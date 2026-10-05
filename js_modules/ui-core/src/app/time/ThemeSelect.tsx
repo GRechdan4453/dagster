@@ -13,55 +13,41 @@ interface Props {
   onChange: (value: DagsterTheme) => void;
 }
 
-export const ThemeSelect = ({theme, onChange}: Props) => {
-  const items = [
-    {
-      key: DagsterTheme.Light,
-      label: 'Light',
-      icon: 'sun',
-    },
-    {
-      key: DagsterTheme.Dark,
-      label: 'Dark',
-      icon: 'nightlight',
-    },
-    {
-      key: DagsterTheme.System,
-      label: 'Use system setting',
-      icon: 'daemon',
-    },
-    {
-      key: DagsterTheme.LightNoRedGreen,
-      label: 'Light (no red or green)',
-      icon: 'sun',
-    },
-    {
-      key: DagsterTheme.DarkNoRedGreen,
-      label: 'Dark (no red or green)',
-      icon: 'nightlight',
-    },
-    {
-      key: DagsterTheme.SystemNoRedGreen,
-      label: 'Use system setting (no red or green)',
-      icon: 'daemon',
-    },
-    {
-      key: DagsterTheme.Custom1,
-      label: 'Custom theme 1',
-      icon: 'star',
-    },
-    {
-      key: DagsterTheme.AlinosLight,
-      label: 'Alinos light',
-      icon: 'sun',
-    },
-    {
-      key: DagsterTheme.AlinosDark,
-      label: 'Alinos dark',
-      icon: 'nightlight',
-    },
-  ];
+export const THEME_OPTIONS: {key: DagsterTheme; label: string; icon: IconName}[] = [
+  {
+    key: DagsterTheme.Light,
+    label: 'Light',
+    icon: 'sun',
+  },
+  {
+    key: DagsterTheme.Dark,
+    label: 'Dark',
+    icon: 'nightlight',
+  },
+  {
+    key: DagsterTheme.System,
+    label: 'Use system setting',
+    icon: 'daemon',
+  },
+  {
+    key: DagsterTheme.Custom1,
+    label: 'Custom theme 1',
+    icon: 'star',
+  },
+  {
+    key: DagsterTheme.AlinosLight,
+    label: 'Alinos light',
+    icon: 'sun',
+  },
+  {
+    key: DagsterTheme.AlinosDark,
+    label: 'Alinos dark',
+    icon: 'nightlight',
+  },
+];
 
+export const ThemeSelect = ({theme, onChange}: Props) => {
+  const items = THEME_OPTIONS;
   const activeItem = items.find(({key}) => key === theme);
 
   return (

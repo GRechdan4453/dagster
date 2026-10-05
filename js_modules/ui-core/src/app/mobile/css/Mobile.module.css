@@ -171,12 +171,29 @@
 }
 
 .sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin-top: 8px;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  font: inherit;
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-text-lighter);
+  cursor: pointer;
+}
+
+.sectionCount {
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--color-background-lighter);
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 .emptyNote {

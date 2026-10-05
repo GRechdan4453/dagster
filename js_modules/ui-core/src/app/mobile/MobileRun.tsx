@@ -1,6 +1,6 @@
 import {Button, Icon, NonIdealState, Spinner, showToast} from '@dagster-io/ui-components';
 import clsx from 'clsx';
-import {useMemo} from 'react';
+import {ReactNode, useMemo, useState} from 'react';
 import {useParams} from 'react-router-dom';
 
 import {gql, useMutation, useQuery} from '../../apollo-client';
@@ -19,6 +19,8 @@ const FIVE_SECONDS = 5000;
 // The backend caps a logs page at 1000 events.
 const LOG_LIMIT = 1000;
 const LOG_TAIL = 60;
+
+const NOISY_EVENT_TYPES = new Set(['ASSET_MATERIALIZATION_PLANNED']);
 
 // Structured events have an empty message; describe them by type instead.
 const labelForEventType = (eventType: string | null) =>
@@ -48,11 +50,15 @@ export default function MobileRun() {
     if (conn?.__typename !== 'EventConnection') {
       return [];
     }
-    // Step events are logged at debug level, so every level is shown.
+    // Step events are logged at debug level, so every level is shown. Planning
+    // events are dropped: a run emits one per asset the moment it is created,
+    // which buries everything else. Newest first.
     return conn.events
+      .filter((e) => !NOISY_EVENT_TYPES.has(e.eventType ?? ''))
       .map((e) => ({...e, text: e.message || labelForEventType(e.eventType)}))
       .filter((e) => e.text)
-      .slice(-LOG_TAIL);
+      .slice(-LOG_TAIL)
+      .reverse();
   }, [data]);
 
   const [terminate, {loading: terminating}] = useMutation<
@@ -119,58 +125,77 @@ export default function MobileRun() {
         ) : null}
       </div>
 
-      <div className={styles.sectionTitle}>Steps</div>
-      {run.stepStats.length ? (
-        <div className={styles.steps}>
-          {run.stepStats.map((step) => (
-            <div key={step.stepKey} className={styles.step}>
-              <span className={clsx(styles.stepDot, step.status ? STEP_ICON[step.status] : null)} />
-              <span className={styles.stepKey}>{step.stepKey}</span>
-              <span className={styles.cardMeta}>
-                {step.startTime && step.endTime
-                  ? formatElapsedTimeWithoutMsec((step.endTime - step.startTime) * 1000)
-                  : step.status === StepEventStatus.IN_PROGRESS
-                    ? 'running'
-                    : ''}
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className={styles.emptyNote}>No steps have started yet.</div>
-      )}
+      <Section title="Steps" count={run.stepStats.length}>
+        {run.stepStats.length ? (
+          <div className={styles.steps}>
+            {run.stepStats.map((step) => (
+              <div key={step.stepKey} className={styles.step}>
+                <span
+                  className={clsx(styles.stepDot, step.status ? STEP_ICON[step.status] : null)}
+                />
+                <span className={styles.stepKey}>{step.stepKey}</span>
+                <span className={styles.cardMeta}>
+                  {step.startTime && step.endTime
+                    ? formatElapsedTimeWithoutMsec((step.endTime - step.startTime) * 1000)
+                    : step.status === StepEventStatus.IN_PROGRESS
+                      ? 'running'
+                      : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className={styles.emptyNote}>No steps have started yet.</div>
+        )}
+      </Section>
 
-      <div className={styles.sectionTitle}>Logs</div>
-      {logs.length ? (
-        <div className={styles.logs}>
-          {logs.map((e, i) => (
-            <div key={`${e.timestamp}-${i}`} className={styles.logLine}>
-              <span className={styles.logTime}>
-                {new Date(Number(e.timestamp)).toLocaleTimeString()}
-              </span>
-              <span
-                className={clsx(
-                  styles.logLevel,
-                  e.level === LogLevel.ERROR || e.level === LogLevel.CRITICAL
-                    ? styles.logError
-                    : e.level === LogLevel.WARNING
-                      ? styles.logWarning
-                      : null,
-                )}
-              >
-                {e.level}
-              </span>
-              {e.stepKey ? <span className={styles.logStep}>{e.stepKey}</span> : null}
-              <span className={styles.logMessage}>{e.text}</span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className={styles.emptyNote}>No log messages yet.</div>
-      )}
+      <Section title="Logs" count={logs.length}>
+        {logs.length ? (
+          <div className={styles.logs}>
+            {logs.map((e, i) => (
+              <div key={`${e.timestamp}-${i}`} className={styles.logLine}>
+                <span className={styles.logTime}>
+                  {new Date(Number(e.timestamp)).toLocaleTimeString()}
+                </span>
+                <span
+                  className={clsx(
+                    styles.logLevel,
+                    e.level === LogLevel.ERROR || e.level === LogLevel.CRITICAL
+                      ? styles.logError
+                      : e.level === LogLevel.WARNING
+                        ? styles.logWarning
+                        : null,
+                  )}
+                >
+                  {e.level}
+                </span>
+                {e.stepKey ? <span className={styles.logStep}>{e.stepKey}</span> : null}
+                <span className={styles.logMessage}>{e.text}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className={styles.emptyNote}>No log messages yet.</div>
+        )}
+      </Section>
     </div>
   );
 }
+
+// A titled block that folds away when its header is tapped.
+const Section = ({title, count, children}: {title: string; count: number; children: ReactNode}) => {
+  const [open, setOpen] = useState(true);
+  return (
+    <>
+      <button type="button" className={styles.sectionTitle} onClick={() => setOpen((o) => !o)}>
+        <Icon name={open ? 'expand_more' : 'chevron_right'} />
+        {title}
+        <span className={styles.sectionCount}>{count}</span>
+      </button>
+      {open ? children : null}
+    </>
+  );
+};
 
 export const MOBILE_RUN_QUERY = gql`
   query MobileRunQuery($runId: ID!, $logLimit: Int!) {

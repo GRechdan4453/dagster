@@ -1,0 +1,209 @@
+import {Button, Icon, NonIdealState, Spinner, showToast} from '@dagster-io/ui-components';
+import clsx from 'clsx';
+import {useMemo} from 'react';
+import {useParams} from 'react-router-dom';
+
+import {gql, useMutation, useQuery} from '../../apollo-client';
+import {formatElapsedTimeWithoutMsec} from '../Util';
+import styles from './css/Mobile.module.css';
+import {MobileRunQuery, MobileRunQueryVariables} from './types/MobileRun.types';
+import {LogLevel, StepEventStatus, TerminateRunPolicy} from '../../graphql/types';
+import {useDocumentTitle} from '../../hooks/useDocumentTitle';
+import {RunStatusTag} from '../../runs/RunStatusTag';
+import {TERMINATE_MUTATION} from '../../runs/RunUtils';
+import {TerminateMutation, TerminateMutationVariables} from '../../runs/types/RunUtils.types';
+import {TimeFromNow} from '../../ui/TimeFromNow';
+import {useQueryRefreshAtInterval} from '../QueryRefresh';
+
+const FIVE_SECONDS = 5000;
+// The backend caps a logs page at 1000 events.
+const LOG_LIMIT = 1000;
+const LOG_TAIL = 60;
+
+// Structured events have an empty message; describe them by type instead.
+const labelForEventType = (eventType: string | null) =>
+  eventType ? eventType.toLowerCase().replace(/_/g, ' ') : '';
+
+const STEP_ICON: Record<StepEventStatus, string | undefined> = {
+  [StepEventStatus.SUCCESS]: styles.stepSuccess,
+  [StepEventStatus.FAILURE]: styles.stepFailure,
+  [StepEventStatus.IN_PROGRESS]: styles.stepRunning,
+  [StepEventStatus.SKIPPED]: styles.stepSkipped,
+};
+
+// eslint-disable-next-line import/no-default-export
+export default function MobileRun() {
+  const {runId} = useParams<{runId: string}>();
+  useDocumentTitle(`Run ${runId.slice(0, 8)}`);
+
+  const queryResult = useQuery<MobileRunQuery, MobileRunQueryVariables>(MOBILE_RUN_QUERY, {
+    variables: {runId, logLimit: LOG_LIMIT},
+  });
+  useQueryRefreshAtInterval(queryResult, FIVE_SECONDS);
+  const {data, loading} = queryResult;
+
+  const run = data?.runOrError.__typename === 'Run' ? data.runOrError : null;
+  const logs = useMemo(() => {
+    const conn = data?.logsForRun;
+    if (conn?.__typename !== 'EventConnection') {
+      return [];
+    }
+    // Step events are logged at debug level, so every level is shown.
+    return conn.events
+      .map((e) => ({...e, text: e.message || labelForEventType(e.eventType)}))
+      .filter((e) => e.text)
+      .slice(-LOG_TAIL);
+  }, [data]);
+
+  const [terminate, {loading: terminating}] = useMutation<
+    TerminateMutation,
+    TerminateMutationVariables
+  >(TERMINATE_MUTATION);
+
+  const onTerminate = async () => {
+    const result = await terminate({
+      variables: {runIds: [runId], terminatePolicy: TerminateRunPolicy.SAFE_TERMINATE},
+    });
+    const outcome = result.data?.terminateRuns;
+    const first =
+      outcome?.__typename === 'TerminateRunsResult' ? outcome.terminateRunResults[0] : null;
+    if (first?.__typename === 'TerminateRunSuccess') {
+      await showToast({intent: 'success', message: 'Termination requested'});
+      queryResult.refetch();
+    } else {
+      const message = first && 'message' in first ? first.message : 'Could not terminate run';
+      await showToast({intent: 'danger', message});
+    }
+  };
+
+  if (!run) {
+    if (loading) {
+      return (
+        <div className={styles.center}>
+          <Spinner purpose="page" />
+        </div>
+      );
+    }
+    return <NonIdealState icon="run" title="Run not found" />;
+  }
+
+  const duration =
+    run.startTime && run.endTime
+      ? formatElapsedTimeWithoutMsec((run.endTime - run.startTime) * 1000)
+      : null;
+
+  return (
+    <div className={styles.runPage}>
+      <div className={styles.runHeader}>
+        <div className={styles.cardName}>{run.pipelineName}</div>
+        <div className={styles.cardStatus}>
+          <RunStatusTag status={run.status} />
+          {run.startTime ? (
+            <span className={styles.cardMeta}>
+              <TimeFromNow unixTimestamp={run.startTime} />
+              {duration ? ` · ${duration}` : ''}
+            </span>
+          ) : null}
+        </div>
+        <div className={styles.cardMeta}>{run.runId}</div>
+        {run.canTerminate ? (
+          <Button
+            intent="danger"
+            icon={<Icon name="cancel" />}
+            loading={terminating}
+            onClick={onTerminate}
+            className={styles.runButton}
+          >
+            Terminate
+          </Button>
+        ) : null}
+      </div>
+
+      <div className={styles.sectionTitle}>Steps</div>
+      {run.stepStats.length ? (
+        <div className={styles.steps}>
+          {run.stepStats.map((step) => (
+            <div key={step.stepKey} className={styles.step}>
+              <span className={clsx(styles.stepDot, step.status ? STEP_ICON[step.status] : null)} />
+              <span className={styles.stepKey}>{step.stepKey}</span>
+              <span className={styles.cardMeta}>
+                {step.startTime && step.endTime
+                  ? formatElapsedTimeWithoutMsec((step.endTime - step.startTime) * 1000)
+                  : step.status === StepEventStatus.IN_PROGRESS
+                    ? 'running'
+                    : ''}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className={styles.emptyNote}>No steps have started yet.</div>
+      )}
+
+      <div className={styles.sectionTitle}>Logs</div>
+      {logs.length ? (
+        <div className={styles.logs}>
+          {logs.map((e, i) => (
+            <div key={`${e.timestamp}-${i}`} className={styles.logLine}>
+              <span className={styles.logTime}>
+                {new Date(Number(e.timestamp)).toLocaleTimeString()}
+              </span>
+              <span
+                className={clsx(
+                  styles.logLevel,
+                  e.level === LogLevel.ERROR || e.level === LogLevel.CRITICAL
+                    ? styles.logError
+                    : e.level === LogLevel.WARNING
+                      ? styles.logWarning
+                      : null,
+                )}
+              >
+                {e.level}
+              </span>
+              {e.stepKey ? <span className={styles.logStep}>{e.stepKey}</span> : null}
+              <span className={styles.logMessage}>{e.text}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className={styles.emptyNote}>No log messages yet.</div>
+      )}
+    </div>
+  );
+}
+
+export const MOBILE_RUN_QUERY = gql`
+  query MobileRunQuery($runId: ID!, $logLimit: Int!) {
+    runOrError(runId: $runId) {
+      ... on Run {
+        id
+        runId
+        status
+        pipelineName
+        startTime
+        endTime
+        canTerminate
+        stepStats {
+          stepKey
+          status
+          startTime
+          endTime
+        }
+      }
+    }
+    logsForRun(runId: $runId, limit: $logLimit) {
+      ... on EventConnection {
+        hasMore
+        events {
+          ... on MessageEvent {
+            message
+            timestamp
+            level
+            stepKey
+            eventType
+          }
+        }
+      }
+    }
+  }
+`;

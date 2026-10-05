@@ -8,6 +8,7 @@ import styles from './css/Mobile.module.css';
 
 const MobilePipelines = lazy(() => import('./MobilePipelines'));
 const MobileRuns = lazy(() => import('./MobileRuns'));
+const MobileRun = lazy(() => import('./MobileRun'));
 
 // Phone layout: a top bar, the page, and a bottom tab bar. Mobile-only screens
 // live under /m/*; every other route shows the regular page inside this shell.
@@ -20,6 +21,9 @@ const TABS = [
 export const MobileLayout = ({children}: {children: ReactNode}) => {
   const {pathname} = useLocation();
   const tab = TABS.find((t) => pathname.startsWith(t.to));
+  const isRunPage = /^\/runs\/[^/]+$/.test(pathname);
+  const backTo = isRunPage ? '/m/runs' : '/m/pipelines';
+  const title = tab?.label ?? (isRunPage ? 'Run' : 'Alinos');
 
   return (
     <div className={styles.shell}>
@@ -27,11 +31,11 @@ export const MobileLayout = ({children}: {children: ReactNode}) => {
         {tab ? (
           <DagsterIcon height={24} />
         ) : (
-          <NavLink to="/m/pipelines" className={styles.back} aria-label="Back to pipelines">
+          <NavLink to={backTo} className={styles.back} aria-label="Back">
             <Icon name="arrow_back" />
           </NavLink>
         )}
-        <span className={styles.title}>{tab?.label ?? 'Alinos'}</span>
+        <span className={styles.title}>{title}</span>
       </header>
       <div className={styles.body}>
         <Suspense
@@ -53,6 +57,9 @@ export const MobileLayout = ({children}: {children: ReactNode}) => {
             </Route>
             <Route path="/m/runs">
               <MobileRuns />
+            </Route>
+            <Route exact path="/runs/:runId">
+              <MobileRun />
             </Route>
             <Route path="*">{children}</Route>
           </Switch>

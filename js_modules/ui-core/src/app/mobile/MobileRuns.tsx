@@ -11,6 +11,7 @@ import {RunStatus} from '../../graphql/types';
 import {useDocumentTitle} from '../../hooks/useDocumentTitle';
 import {RunStatusTag} from '../../runs/RunStatusTag';
 import {failedStatuses, inProgressStatuses, queuedStatuses} from '../../runs/RunStatuses';
+import {TimeElapsed} from '../../runs/TimeElapsed';
 import {TimeFromNow} from '../../ui/TimeFromNow';
 import {FIFTEEN_SECONDS, useQueryRefreshAtInterval} from '../QueryRefresh';
 
@@ -85,6 +86,11 @@ export default function MobileRuns() {
                       <span className={styles.cardMeta}>
                         <TimeFromNow unixTimestamp={run.startTime} />
                         {duration ? ` · ${duration}` : ''}
+                        {!run.endTime ? (
+                          <span className={styles.live}>
+                            · <TimeElapsed startUnix={run.startTime} endUnix={null} />
+                          </span>
+                        ) : null}
                       </span>
                     ) : null}
                   </div>

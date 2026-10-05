@@ -239,7 +239,34 @@
 }
 
 .stepRunning {
+  position: relative;
   background: var(--color-accent-blue);
+}
+
+/* Spinning ring around a running step's dot. */
+.stepRunning::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--color-accent-blue);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Live elapsed counter next to a running run or step. */
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
 }
 
 .stepSkipped {

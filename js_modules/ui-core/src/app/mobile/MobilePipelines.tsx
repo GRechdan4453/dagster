@@ -9,6 +9,7 @@ import {MobileRecentRunsQuery, MobileRecentRunsQueryVariables} from './types/Mob
 import {isHiddenAssetGroupJob} from '../../asset-graph/Utils';
 import {useDocumentTitle} from '../../hooks/useDocumentTitle';
 import {RunStatusTag} from '../../runs/RunStatusTag';
+import {TimeElapsed} from '../../runs/TimeElapsed';
 import {useLaunchWithTelemetry} from '../../shared/launchpad/useLaunchWithTelemetry';
 import {TimeFromNow} from '../../ui/TimeFromNow';
 import {useRepositoryOptions} from '../../workspace/WorkspaceContext/util';
@@ -140,6 +141,11 @@ const PipelineCard = ({
               <span className={styles.cardMeta}>
                 <TimeFromNow unixTimestamp={latest.startTime} />
                 {duration ? ` · ${duration}` : ''}
+                {!latest.endTime ? (
+                  <span className={styles.live}>
+                    · <TimeElapsed startUnix={latest.startTime} endUnix={null} />
+                  </span>
+                ) : null}
               </span>
             ) : null}
           </Link>

@@ -11,6 +11,7 @@ import {LogLevel, StepEventStatus, TerminateRunPolicy} from '../../graphql/types
 import {useDocumentTitle} from '../../hooks/useDocumentTitle';
 import {RunStatusTag} from '../../runs/RunStatusTag';
 import {TERMINATE_MUTATION} from '../../runs/RunUtils';
+import {TimeElapsed} from '../../runs/TimeElapsed';
 import {TerminateMutation, TerminateMutationVariables} from '../../runs/types/RunUtils.types';
 import {TimeFromNow} from '../../ui/TimeFromNow';
 import {useQueryRefreshAtInterval} from '../QueryRefresh';
@@ -108,6 +109,11 @@ export default function MobileRun() {
             <span className={styles.cardMeta}>
               <TimeFromNow unixTimestamp={run.startTime} />
               {duration ? ` · ${duration}` : ''}
+              {!run.endTime ? (
+                <span className={styles.live}>
+                  · <TimeElapsed startUnix={run.startTime} endUnix={null} />
+                </span>
+              ) : null}
             </span>
           ) : null}
         </div>
@@ -135,11 +141,13 @@ export default function MobileRun() {
                 />
                 <span className={styles.stepKey}>{step.stepKey}</span>
                 <span className={styles.cardMeta}>
-                  {step.startTime && step.endTime
-                    ? formatElapsedTimeWithoutMsec((step.endTime - step.startTime) * 1000)
-                    : step.status === StepEventStatus.IN_PROGRESS
-                      ? 'running'
-                      : ''}
+                  {step.startTime && step.endTime ? (
+                    formatElapsedTimeWithoutMsec((step.endTime - step.startTime) * 1000)
+                  ) : step.startTime && step.status === StepEventStatus.IN_PROGRESS ? (
+                    <TimeElapsed startUnix={step.startTime} endUnix={null} />
+                  ) : (
+                    ''
+                  )}
                 </span>
               </div>
             ))}

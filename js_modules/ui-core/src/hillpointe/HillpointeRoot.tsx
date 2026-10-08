@@ -840,10 +840,9 @@ const ReplayNight = ({runs}: {runs: Run[]}) => {
 
   // Playback clock.
   const [clock, setClock] = useState(window.start);
-  const [playing, setPlaying] = useState(true);
   const done = clock >= window.end;
   useEffect(() => {
-    if (!playing || done) {
+    if (done) {
       return;
     }
     let frame = 0;
@@ -856,7 +855,7 @@ const ReplayNight = ({runs}: {runs: Run[]}) => {
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [playing, done, window.end, span]);
+  }, [done, window.end, span]);
 
   const finished = night.filter((r) => r.end !== null && r.end <= clock);
   const passed = finished.filter((r) => r.status === RunStatus.SUCCESS).length;
@@ -908,11 +907,6 @@ const ReplayNight = ({runs}: {runs: Run[]}) => {
     .sort((a, b) => b.time - a.time)
     .slice(0, REPLAY_FEED_LINES);
 
-  const restart = () => {
-    setClock(window.start);
-    setPlaying(true);
-  };
-
   if (!night.length) {
     return <div className={styles.muted}>No runs between midnight and noon today.</div>;
   }
@@ -922,17 +916,6 @@ const ReplayNight = ({runs}: {runs: Run[]}) => {
       <div className={styles.replayHead}>
         <span className={styles.replayClock}>{formatClock(clock)}</span>
         <span className={styles.replayTag}>{done ? 'Night complete' : 'Replaying last night'}</span>
-        <div className={styles.replayButtons}>
-          <Button
-            icon={<Icon name={playing && !done ? 'pause' : 'execute'} />}
-            onClick={() => (done ? restart() : setPlaying((p) => !p))}
-          >
-            {playing && !done ? 'Pause' : 'Play'}
-          </Button>
-          <Button icon={<Icon name="replay" />} onClick={restart}>
-            Restart
-          </Button>
-        </div>
       </div>
       <div className={styles.replayProgress}>
         <div style={{width: `${((clock - window.start) / span) * 100}%`}} />

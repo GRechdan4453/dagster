@@ -793,13 +793,8 @@ const formatRows = (n: number) => {
   return `${n}`;
 };
 
-/** A round step (1, 2 or 5 times a power of ten) giving about three ticks up to max. */
-const niceStep = (max: number) => {
-  const raw = Math.max(1, max / 3);
-  const mag = 10 ** Math.floor(Math.log10(raw));
-  const n = raw / mag;
-  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * mag;
-};
+// Bottom of the log axis; hours with fewer rows than this draw as empty.
+const LOG_FLOOR = 1_000;
 
 const formatClock = (secs: number) =>
   new Date(secs * 1000).toLocaleTimeString(undefined, {hour: 'numeric', minute: '2-digit'});
@@ -885,11 +880,14 @@ const ReplayNight = ({runs}: {runs: Run[]}) => {
       .filter((r) => r.end !== null && r.end >= from && r.end < from + HOUR)
       .reduce((sum, r) => sum + r.rows, 0);
   });
-  // A floor keeps the axis sensible on a night with no row counts yet.
-  const peak = Math.max(...fullBars, 10_000);
-  const step = niceStep(peak);
-  const axisTop = Math.max(step, Math.ceil(peak / step) * step);
-  const ticks = Array.from({length: Math.round(axisTop / step) + 1}, (_, i) => i * step);
+  // Log axis: one hour can load 20M rows while the rest load 200k, and on a
+  // linear scale the small hours vanish. Each gridline is ten times the last.
+  const peak = Math.max(...fullBars, LOG_FLOOR * 10);
+  const axisTop = 10 ** Math.ceil(Math.log10(peak));
+  const decades = Math.round(Math.log10(axisTop / LOG_FLOOR));
+  const logHeight = (rows: number) =>
+    rows < LOG_FLOOR ? 0 : (Math.log10(rows / LOG_FLOOR) / decades) * 100;
+  const ticks = Array.from({length: decades + 1}, (_, i) => LOG_FLOOR * 10 ** i);
 
   const feed = night
     .flatMap((r) => [
@@ -940,10 +938,10 @@ const ReplayNight = ({runs}: {runs: Run[]}) => {
         <div style={{width: `${((clock - window.start) / span) * 100}%`}} />
       </div>
       <div className={styles.replayChart}>
-        <div className={styles.cardSub}>Rows loaded per hour</div>
+        <div className={styles.cardSub}>Rows loaded per hour · log scale</div>
         <div className={styles.rpPlot}>
           {ticks.map((t) => (
-            <div key={t} className={styles.rpTick} style={{bottom: `${(t / axisTop) * 100}%`}}>
+            <div key={t} className={styles.rpTick} style={{bottom: `${logHeight(t)}%`}}>
               <span>{formatRows(t)}</span>
             </div>
           ))}
@@ -954,7 +952,7 @@ const ReplayNight = ({runs}: {runs: Run[]}) => {
                 className={styles.rpCol}
                 title={`${formatHour(b.from)}: ${b.total.toLocaleString()} rows`}
               >
-                <div className={styles.rpBar} style={{height: `${(b.total / axisTop) * 100}%`}} />
+                <div className={styles.rpBar} style={{height: `${logHeight(b.total)}%`}} />
                 <span className={styles.rpLabel}>{i % 2 === 0 ? formatHour(b.from) : ''}</span>
               </div>
             ))}

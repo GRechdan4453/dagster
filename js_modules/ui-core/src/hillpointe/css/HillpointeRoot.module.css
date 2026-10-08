@@ -475,10 +475,6 @@
 }
 
 /* Replay last night */
-.cardWide {
-  grid-column: 1 / -1;
-}
-
 .replayHead {
   display: flex;
   align-items: center;
@@ -506,7 +502,7 @@
 
 .replayProgress {
   height: 4px;
-  margin: 8px 0 12px;
+  margin: 6px 0 8px;
   border-radius: 2px;
   background: var(--color-background-lighter);
   overflow: hidden;
@@ -519,7 +515,7 @@
 
 .replayTiles {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -533,18 +529,33 @@
   transition: width 0.3s linear;
 }
 
+/* The replay card fills its grid row; the feed takes whatever height is left. */
+.cardFlex {
+  display: flex;
+  flex-direction: column;
+}
+
 .replayGrid {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  gap: 16px;
-  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.replayGrid > div:last-child {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .rpPlot {
   position: relative;
-  height: 140px;
-  margin-top: 6px;
-  margin-bottom: 18px;
+  height: 72px;
+  margin-top: 4px;
+  margin-bottom: 16px;
   padding-left: 44px;
 }
 
@@ -577,7 +588,7 @@
 }
 
 .rpAxisTitle {
-  margin-top: 4px;
+  margin-top: 0;
   font-size: 11px;
   text-align: center;
   color: var(--color-text-lighter);
@@ -615,7 +626,8 @@
   gap: 4px;
   margin-top: 6px;
   font-size: 12px;
-  height: 136px;
+  flex: 1 1 auto;
+  min-height: 58px;
   overflow: hidden;
 }
 
@@ -651,12 +663,10 @@
   color: var(--color-text-red);
 }
 
-@media (max-width: 768px) {
-  .replayTiles {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .replayGrid {
-    grid-template-columns: minmax(0, 1fr);
-  }
+/* Two cards sharing one grid cell, one above the other. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
 }

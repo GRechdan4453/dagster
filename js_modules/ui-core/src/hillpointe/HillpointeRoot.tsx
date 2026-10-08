@@ -179,7 +179,10 @@ export const HillpointeRoot = () => {
         <SummaryTiles runs={runs} statsByRun={statsByRun} />
         <div className={styles.chartGrid}>
           <TrendCard runs={runs} />
-          <RunStatusBlock />
+          <div className={styles.stack}>
+            <RunStatusBlock />
+            <SuccessRateCard />
+          </div>
         </div>
         {selectedRun ? (
           <RunBreakdown
@@ -688,22 +691,36 @@ const TodayTimeline = ({runs}: {runs: Run[]}) => {
   );
 };
 
-type TrendMode = 'rate' | 'timeline' | 'replay';
+type TrendMode = 'timeline' | 'replay';
 const TREND_MODE_KEY = 'hillpointe-trend-mode';
 const TREND_MODES: {id: TrendMode; label: string; sub: string}[] = [
   {id: 'replay', label: 'Replay last night', sub: "Last night's runs, sped up"},
-  {id: 'rate', label: 'Success rate', sub: `${ROLLING_DAYS}-day rolling, last ${TREND_DAYS} days`},
   {id: 'timeline', label: "Today's runs", sub: 'When each job ran, and for how long'},
 ];
 
-/** One card that switches between the two trend charts. */
+/** Success rate gets its own card, placed under Pipeline runs. */
+const SuccessRateCard = () => (
+  <div className={styles.card}>
+    <div className={styles.cardHeader}>
+      <div className={styles.cardTitle}>
+        Success rate
+        <span className={styles.cardSub}>
+          {ROLLING_DAYS}-day rolling, last {TREND_DAYS} days
+        </span>
+      </div>
+    </div>
+    <SuccessRateTrend />
+  </div>
+);
+
+/** One card that switches between the replay and today's timeline. */
 const TrendCard = ({runs}: {runs: Run[]}) => {
   const [mode, setMode] = useStateWithStorage<TrendMode>(TREND_MODE_KEY, (value) =>
-    TREND_MODES.some((m) => m.id === value) ? value : 'rate',
+    TREND_MODES.some((m) => m.id === value) ? value : 'replay',
   );
   const current = TREND_MODES.find((m) => m.id === mode) ?? TREND_MODES[0];
   return (
-    <div className={clsx(styles.card, mode === 'replay' && styles.cardWide)}>
+    <div className={clsx(styles.card, mode === 'replay' && styles.cardFlex)}>
       <div className={styles.cardHeader}>
         <div className={styles.cardTitle}>
           {current?.label}
@@ -715,7 +732,6 @@ const TrendCard = ({runs}: {runs: Run[]}) => {
           onClick={setMode}
         />
       </div>
-      {mode === 'rate' ? <SuccessRateTrend /> : null}
       {mode === 'timeline' ? <TodayTimeline runs={runs} /> : null}
       {mode === 'replay' ? <ReplayNight runs={runs} /> : null}
     </div>
@@ -730,7 +746,7 @@ const TrendCard = ({runs}: {runs: Run[]}) => {
 const REPLAY_SECONDS = 45;
 const NIGHT_START_HOUR = 18; // yesterday evening
 const NIGHT_END_HOUR = 10; // this morning
-const REPLAY_FEED_LINES = 8;
+const REPLAY_FEED_LINES = 14;
 
 type ReplayRun = {
   runId: string;

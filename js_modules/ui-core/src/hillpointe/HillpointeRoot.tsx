@@ -694,7 +694,7 @@ const TodayTimeline = ({runs}: {runs: Run[]}) => {
 type TrendMode = 'timeline' | 'replay';
 const TREND_MODE_KEY = 'hillpointe-trend-mode';
 const TREND_MODES: {id: TrendMode; label: string; sub: string}[] = [
-  {id: 'replay', label: 'Replay last night', sub: "Last night's runs, sped up"},
+  {id: 'replay', label: 'Replay last night', sub: 'Midnight to noon today, sped up'},
   {id: 'timeline', label: "Today's runs", sub: 'When each job ran, and for how long'},
 ];
 
@@ -744,8 +744,8 @@ const TrendCard = ({runs}: {runs: Run[]}) => {
 // the same kind of tiles, bars and feed a live view would. Real data, sped up.
 
 const REPLAY_SECONDS = 45;
-const NIGHT_START_HOUR = 18; // yesterday evening
-const NIGHT_END_HOUR = 10; // this morning
+const NIGHT_START_HOUR = 0; // midnight today
+const NIGHT_END_HOUR = 12; // noon today
 const REPLAY_FEED_LINES = 14;
 
 type ReplayRun = {
@@ -758,7 +758,7 @@ type ReplayRun = {
 };
 
 const nightWindow = () => {
-  const start = startOfDay(1);
+  const start = startOfDay(0);
   start.setHours(NIGHT_START_HOUR, 0, 0, 0);
   const end = startOfDay(0);
   end.setHours(NIGHT_END_HOUR, 0, 0, 0);
@@ -898,7 +898,7 @@ const ReplayNight = ({runs}: {runs: Run[]}) => {
   };
 
   if (!night.length) {
-    return <div className={styles.muted}>No runs between 6 PM yesterday and 10 AM today.</div>;
+    return <div className={styles.muted}>No runs between midnight and noon today.</div>;
   }
 
   return (
@@ -921,76 +921,31 @@ const ReplayNight = ({runs}: {runs: Run[]}) => {
       <div className={styles.replayProgress}>
         <div style={{width: `${((clock - window.start) / span) * 100}%`}} />
       </div>
-      <div className={styles.replayTiles}>
-        <div className={styles.miniTile}>
-          <div className={styles.tileLabel}>Runs finished</div>
-          <div className={styles.jobStatValue}>
-            <CountUp value={finished.length} />
-          </div>
-        </div>
-        <div className={styles.miniTile}>
-          <div className={styles.tileLabel}>Success rate</div>
-          <div className={styles.jobStatValue}>
-            {finished.length ? (
-              <CountUp value={(passed / finished.length) * 100} format={percent} />
-            ) : (
-              '—'
-            )}
-          </div>
-          <div className={styles.tileSub}>
-            {passed} passed · {failedCount} failed
-          </div>
-        </div>
-        <div className={styles.miniTile}>
-          <div className={styles.tileLabel}>Rows loaded</div>
-          <div className={styles.jobStatValue}>
-            <CountUp value={rows} />
-          </div>
-        </div>
-        <div className={styles.miniTile}>
-          <div className={styles.tileLabel}>Running now</div>
-          <div className={styles.jobStatValue}>{current ? current.jobName : 'idle'}</div>
-          <div className={styles.stepTrack}>
-            {current ? (
+      <div className={styles.replayChart}>
+        <div className={styles.cardSub}>Rows loaded per hour</div>
+        <div className={styles.rpPlot}>
+          {ticks.map((t) => (
+            <div key={t} className={styles.rpTick} style={{bottom: `${(t / axisTop) * 100}%`}}>
+              <span>{formatRows(t)}</span>
+            </div>
+          ))}
+          <div className={styles.rpChart}>
+            {bars.map((b, i) => (
               <div
-                className={styles.stepBar}
-                style={{
-                  width: `${Math.min(
-                    100,
-                    ((clock - current.start) / ((current.end ?? window.end) - current.start)) * 100,
-                  )}%`,
-                  background: Colors.accentBlue(),
-                }}
-              />
-            ) : null}
-          </div>
-        </div>
-      </div>
-      <div className={styles.replayGrid}>
-        <div>
-          <div className={styles.cardSub}>Rows loaded per hour</div>
-          <div className={styles.rpPlot}>
-            {ticks.map((t) => (
-              <div key={t} className={styles.rpTick} style={{bottom: `${(t / axisTop) * 100}%`}}>
-                <span>{formatRows(t)}</span>
+                key={b.from}
+                className={styles.rpCol}
+                title={`${formatHour(b.from)}: ${b.total.toLocaleString()} rows`}
+              >
+                <div className={styles.rpBar} style={{height: `${(b.total / axisTop) * 100}%`}} />
+                <span className={styles.rpLabel}>{i % 2 === 0 ? formatHour(b.from) : ''}</span>
               </div>
             ))}
-            <div className={styles.rpChart}>
-              {bars.map((b, i) => (
-                <div
-                  key={b.from}
-                  className={styles.rpCol}
-                  title={`${formatHour(b.from)}: ${b.total.toLocaleString()} rows`}
-                >
-                  <div className={styles.rpBar} style={{height: `${(b.total / axisTop) * 100}%`}} />
-                  <span className={styles.rpLabel}>{i % 2 === 0 ? formatHour(b.from) : ''}</span>
-                </div>
-              ))}
-            </div>
           </div>
-          <div className={styles.rpAxisTitle}>Time rows were inserted</div>
         </div>
-        <div>
+        <div className={styles.rpAxisTitle}>Time rows were inserted</div>
+      </div>
+      <div className={styles.replayBottom}>
+        <div className={styles.replayFeed}>
           <div className={styles.cardSub}>Activity</div>
           <div className={styles.feed}>
             {feed.map((e) => (
@@ -999,6 +954,52 @@ const ReplayNight = ({runs}: {runs: Run[]}) => {
                 <span className={e.tone}>{e.text}</span>
               </div>
             ))}
+          </div>
+        </div>
+        <div className={styles.replayTiles}>
+          <div className={styles.miniTile}>
+            <div className={styles.tileLabel}>Runs finished</div>
+            <div className={styles.jobStatValue}>
+              <CountUp value={finished.length} />
+            </div>
+          </div>
+          <div className={styles.miniTile}>
+            <div className={styles.tileLabel}>Success rate</div>
+            <div className={styles.jobStatValue}>
+              {finished.length ? (
+                <CountUp value={(passed / finished.length) * 100} format={percent} />
+              ) : (
+                '—'
+              )}
+            </div>
+            <div className={styles.tileSub}>
+              {passed} passed · {failedCount} failed
+            </div>
+          </div>
+          <div className={styles.miniTile}>
+            <div className={styles.tileLabel}>Rows loaded</div>
+            <div className={styles.jobStatValue}>
+              <CountUp value={rows} />
+            </div>
+          </div>
+          <div className={styles.miniTile}>
+            <div className={styles.tileLabel}>Running now</div>
+            <div className={styles.jobStatValue}>{current ? current.jobName : 'idle'}</div>
+            <div className={styles.stepTrack}>
+              {current ? (
+                <div
+                  className={styles.stepBar}
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      ((clock - current.start) / ((current.end ?? window.end) - current.start)) *
+                        100,
+                    )}%`,
+                    background: Colors.accentBlue(),
+                  }}
+                />
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

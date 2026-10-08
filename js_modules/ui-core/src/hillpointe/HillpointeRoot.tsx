@@ -869,8 +869,10 @@ const ReplayNight = ({runs}: {runs: Run[]}) => {
       .filter((r) => r.end !== null && r.end >= from && r.end < from + HOUR)
       .reduce((sum, r) => sum + r.rows, 0);
   });
-  const step = niceStep(Math.max(...fullBars, 1));
-  const axisTop = Math.max(step, Math.ceil(Math.max(...fullBars, 1) / step) * step);
+  // A floor keeps the axis sensible on a night with no row counts yet.
+  const peak = Math.max(...fullBars, 10_000);
+  const step = niceStep(peak);
+  const axisTop = Math.max(step, Math.ceil(peak / step) * step);
   const ticks = Array.from({length: Math.round(axisTop / step) + 1}, (_, i) => i * step);
 
   const feed = night

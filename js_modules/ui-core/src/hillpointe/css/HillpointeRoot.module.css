@@ -513,12 +513,32 @@
   background: var(--color-accent-blue);
 }
 
-/* Four small tiles in the bottom-right corner. */
+/* Four stat tiles in the bottom-right corner, styled like the page tiles. */
 .replayTiles {
   display: grid;
-  grid-template-columns: repeat(2, minmax(150px, 1fr));
-  gap: 8px;
-  align-content: start;
+  grid-template-columns: repeat(2, minmax(190px, 1fr));
+  gap: 10px;
+  align-content: stretch;
+}
+
+.replayTiles .miniTile {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--color-keyline-default);
+  background: var(--color-background-light);
+}
+
+.replayTiles .tileLabel {
+  font-size: 12px;
+}
+
+.replayTiles .jobStatValue {
+  font-size: 22px;
+  line-height: 1.2;
 }
 
 .replayTiles .stepTrack {

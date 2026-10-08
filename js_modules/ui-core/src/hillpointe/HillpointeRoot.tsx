@@ -27,6 +27,8 @@ import {
   HillpointeRunStatsQueryVariables,
   HillpointeRunStepStatsQuery,
   HillpointeRunStepStatsQueryVariables,
+  HillpointeSchedulesQuery,
+  HillpointeSchedulesQueryVariables,
 } from './types/HillpointeRoot.types';
 import {
   FIFTEEN_SECONDS,
@@ -34,10 +36,11 @@ import {
   useQueryRefreshAtInterval,
 } from '../app/QueryRefresh';
 import {useTrackPageView} from '../app/analytics';
-import {RunStatus, StepEventStatus} from '../graphql/types';
+import {InstigationStatus, RunStatus, StepEventStatus} from '../graphql/types';
 import {useDocumentTitle} from '../hooks/useDocumentTitle';
 import {useStateWithStorage} from '../hooks/useStateWithStorage';
 import {RunStatusTag} from '../runs/RunStatusTag';
+import {TimeFromNow} from '../ui/TimeFromNow';
 
 // Runs are scoped to the current month; the limit is a safety cap.
 const MONTH_RUN_LIMIT = 5000;
@@ -596,106 +599,16 @@ const RunMonthCalendar = ({days}: {days: DayCounts[]}) => {
   );
 };
 
-const bucketColor = (status: RunStatus) =>
-  BUCKETS.find((b) => b.key === bucketFor(status))?.color ?? Colors.dataVizGray();
-
 const HOUR = 3600;
 
 const formatHour = (secs: number) =>
   new Date(secs * 1000).toLocaleTimeString(undefined, {hour: 'numeric'});
 
-/** Today's runs as bars on a midnight-to-now axis, one row per job. */
-const TodayTimeline = ({runs}: {runs: Run[]}) => {
-  const dayStart = startOfDay(0).getTime() / 1000;
-  const now = Date.now() / 1000;
-  // The axis ends on the next whole hour so the newest run isn't flush right.
-  const axisEnd = Math.ceil((now + 1) / HOUR) * HOUR;
-  const span = axisEnd - dayStart;
-  const pct = (secs: number) => `${((secs - dayStart) / span) * 100}%`;
-
-  const byJob = new Map<string, Run[]>();
-  runs
-    .filter((r) => r.startTime && r.startTime >= dayStart)
-    .forEach((r) => byJob.set(r.jobName, [...(byJob.get(r.jobName) ?? []), r]));
-  const firstStart = (list: Run[]) => Math.min(...list.map((r) => r.startTime ?? Infinity));
-  const jobs = [...byJob.entries()].sort((a, b) => firstStart(a[1]) - firstStart(b[1]));
-
-  const tickEvery = span > 12 * HOUR ? 6 * HOUR : 3 * HOUR;
-  const ticks: number[] = [];
-  for (let t = dayStart; t <= axisEnd; t += tickEvery) {
-    ticks.push(t);
-  }
-
-  return (
-    <>
-      <Legend items={BUCKETS} />
-      {jobs.length ? (
-        <div className={styles.tlRows}>
-          {jobs.map(([job, jobRuns]) => (
-            <div key={job} className={styles.tlRow}>
-              <div className={styles.stepName} title={job}>
-                {job}
-              </div>
-              <div className={styles.tlTrack}>
-                {jobRuns.map((run) => {
-                  const start = run.startTime ?? dayStart;
-                  const end = run.endTime ?? now;
-                  return (
-                    <Tooltip
-                      key={run.runId}
-                      content={
-                        <div>
-                          <strong>{run.jobName}</strong> · {run.runId.slice(0, 8)}
-                          <div>
-                            {new Date(start * 1000).toLocaleTimeString()}
-                            {run.endTime
-                              ? ` – ${new Date(end * 1000).toLocaleTimeString()}`
-                              : ' – now'}
-                            {' · '}
-                            {formatDuration(end - start)} · {run.status}
-                          </div>
-                        </div>
-                      }
-                    >
-                      <Link to={`/runs/${run.runId}`}>
-                        <div
-                          className={styles.tlBar}
-                          style={{
-                            left: pct(start),
-                            width: `${((end - start) / span) * 100}%`,
-                            background: bucketColor(run.status),
-                          }}
-                        />
-                      </Link>
-                    </Tooltip>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className={styles.muted}>No runs yet today.</div>
-      )}
-      <div className={styles.tlRow}>
-        <div />
-        <div className={styles.tlAxis}>
-          {ticks.map((t) => (
-            <span key={t} style={{left: pct(t)}}>
-              {t === ticks[ticks.length - 1] ? 'now' : formatHour(t)}
-            </span>
-          ))}
-        </div>
-      </div>
-    </>
-  );
-};
-
-type TrendMode = 'timeline' | 'replay';
+type TrendMode = 'schedule' | 'replay';
 const TREND_MODE_KEY = 'hillpointe-trend-mode';
 const TREND_MODES: {id: TrendMode; label: string; sub: string}[] = [
   {id: 'replay', label: 'Replay last night', sub: 'Midnight to noon today, sped up'},
-  {id: 'timeline', label: "Today's runs", sub: 'When each job ran, and for how long'},
+  {id: 'schedule', label: "Tonight's schedule", sub: 'Last night, and what runs next'},
 ];
 
 /** Success rate gets its own card, placed under Pipeline runs. */
@@ -748,8 +661,183 @@ const TrendCard = ({runs}: {runs: Run[]}) => {
           onClick={setMode}
         />
       </div>
-      {mode === 'timeline' ? <TodayTimeline runs={runs} /> : null}
+      {mode === 'schedule' ? <ScheduleBoard runs={runs} /> : null}
       {mode === 'replay' ? <ReplayNight runs={runs} /> : null}
+    </div>
+  );
+};
+
+// ---- Tonight's schedule ----------------------------------------------------
+// One row per job: how its last run went, and a live countdown to its next
+// scheduled run. Jobs without a schedule get an expected time 24h after their
+// last run, marked as such.
+
+const DAY = 24 * HOUR;
+const LOOKBACK_FOR_ROWS_DAYS = 2;
+
+type BoardRow = {
+  job: string;
+  status: RunStatus;
+  start: number;
+  duration: number | null;
+  rows: number;
+  next: number | null;
+  nextIsGuess: boolean;
+};
+
+const formatCountdown = (secs: number) => {
+  const s = Math.max(0, Math.floor(secs));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const pad = (n: number) => `${n}`.padStart(2, '0');
+  return h > 0 ? `${h}h ${pad(m)}m ${pad(sec)}s` : `${m}m ${pad(sec)}s`;
+};
+
+const ScheduleBoard = ({runs}: {runs: Run[]}) => {
+  const [rowsAfter] = useState(() => startOfDay(LOOKBACK_FOR_ROWS_DAYS - 1).getTime() / 1000);
+  const rowResult = useQuery<HillpointeRowCountQuery, HillpointeRowCountQueryVariables>(
+    HILLPOINTE_ROW_COUNT_QUERY,
+    {variables: {after: rowsAfter}},
+  );
+  useQueryRefreshAtInterval(rowResult, FIFTEEN_SECONDS);
+  const scheduleResult = useQuery<HillpointeSchedulesQuery, HillpointeSchedulesQueryVariables>(
+    HILLPOINTE_SCHEDULES_QUERY,
+  );
+  useQueryRefreshAtInterval(scheduleResult, FIFTEEN_SECONDS);
+
+  // Ticks once a second so the countdowns move.
+  const [now, setNow] = useState(() => Date.now() / 1000);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now() / 1000), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const rowsByRun = useMemo(() => {
+    const map = new Map<string, number>();
+    const result = rowResult.data?.runsOrError;
+    (result?.__typename === 'Runs' ? result.results : []).forEach((run) => {
+      run.assetMaterializations.forEach((m) =>
+        m.metadataEntries.forEach((e) => {
+          if (e.__typename === 'IntMetadataEntry' && e.label === ROW_COUNT_LABEL) {
+            map.set(run.id, (map.get(run.id) ?? 0) + Number(e.intRepr));
+          }
+        }),
+      );
+    });
+    return map;
+  }, [rowResult.data]);
+
+  // Next tick per job from its schedules; the earliest wins.
+  const nextByJob = useMemo(() => {
+    const map = new Map<string, number>();
+    const ws = scheduleResult.data?.workspaceOrError;
+    if (ws?.__typename !== 'Workspace') {
+      return map;
+    }
+    ws.locationEntries.forEach((entry) => {
+      const loc = entry.locationOrLoadError;
+      if (loc?.__typename !== 'RepositoryLocation') {
+        return;
+      }
+      loc.repositories.forEach((repo) =>
+        repo.schedules.forEach((sched) => {
+          if (sched.scheduleState.status !== InstigationStatus.RUNNING) {
+            return;
+          }
+          const tick = sched.futureTicks.results[0]?.timestamp;
+          if (tick) {
+            const prev = map.get(sched.pipelineName);
+            map.set(sched.pipelineName, prev === undefined ? tick : Math.min(prev, tick));
+          }
+        }),
+      );
+    });
+    return map;
+  }, [scheduleResult.data]);
+
+  const board: BoardRow[] = useMemo(() => {
+    const latest = new Map<string, Run>();
+    runs.forEach((r) => {
+      if (!r.startTime) {
+        return;
+      }
+      const prev = latest.get(r.jobName);
+      if (!prev || (prev.startTime ?? 0) < r.startTime) {
+        latest.set(r.jobName, r);
+      }
+    });
+    return [...latest.values()]
+      .map((r) => {
+        const start = r.startTime ?? 0;
+        const scheduled = nextByJob.get(r.jobName);
+        // No schedule: expect it again a day after it last started, if that is still ahead.
+        const guess = start + DAY > now ? start + DAY : null;
+        return {
+          job: r.jobName,
+          status: r.status,
+          start,
+          duration: durationSec(r.startTime, r.endTime),
+          rows: rowsByRun.get(r.runId) ?? 0,
+          next: scheduled ?? guess,
+          nextIsGuess: scheduled === undefined,
+        };
+      })
+      .sort((a, b) => (a.next ?? Infinity) - (b.next ?? Infinity));
+  }, [runs, rowsByRun, nextByJob, now]);
+
+  if (!board.length) {
+    return <div className={styles.muted}>No runs this month yet.</div>;
+  }
+
+  return (
+    <div className={styles.board}>
+      <div className={clsx(styles.boardRow, styles.boardHead)}>
+        <span>Job</span>
+        <span>Last run</span>
+        <span className={styles.boardNum}>Rows</span>
+        <span className={styles.boardNum}>Took</span>
+        <span className={styles.boardNext}>Next run</span>
+      </div>
+      {board.map((row) => {
+        const running =
+          bucketFor(row.status) === 'inProgress' || bucketFor(row.status) === 'queued';
+        return (
+          <div key={row.job} className={styles.boardRow}>
+            <span className={styles.boardJob} title={row.job}>
+              {row.job}
+            </span>
+            <span className={styles.boardStatus}>
+              <RunStatusTag status={row.status} />
+              <span className={styles.muted}>
+                <TimeFromNow unixTimestamp={row.start} />
+              </span>
+            </span>
+            <span className={styles.boardNum}>{row.rows ? row.rows.toLocaleString() : '—'}</span>
+            <span className={styles.boardNum}>{formatDuration(row.duration)}</span>
+            <span className={styles.boardNext}>
+              {running ? (
+                <span className={styles.boardLive}>running now</span>
+              ) : row.next ? (
+                <>
+                  <span className={styles.boardCountdown}>
+                    in {formatCountdown(row.next - now)}
+                  </span>
+                  <span className={styles.muted}>
+                    {new Date(row.next * 1000).toLocaleTimeString(undefined, {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                    {row.nextIsGuess ? ' · expected' : ''}
+                  </span>
+                </>
+              ) : (
+                <span className={styles.muted}>not scheduled</span>
+              )}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -1357,6 +1445,40 @@ export const HILLPOINTE_ROW_COUNT_QUERY = gql`
               label
               ... on IntMetadataEntry {
                 intRepr
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const HILLPOINTE_SCHEDULES_QUERY = gql`
+  query HillpointeSchedulesQuery {
+    workspaceOrError {
+      ... on Workspace {
+        id
+        locationEntries {
+          id
+          locationOrLoadError {
+            ... on RepositoryLocation {
+              id
+              repositories {
+                id
+                schedules {
+                  id
+                  pipelineName
+                  scheduleState {
+                    id
+                    status
+                  }
+                  futureTicks(limit: 1) {
+                    results {
+                      timestamp
+                    }
+                  }
+                }
               }
             }
           }

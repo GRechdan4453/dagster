@@ -8,6 +8,8 @@ export type Incremental<T> =
 
 import * as Types from '../../graphql/types';
 
+export type InstigationStatus = 'RUNNING' | 'STOPPED';
+
 export type RunStatus =
   | 'CANCELED'
   | 'CANCELING'
@@ -135,6 +137,50 @@ export type HillpointeRowCountQuery = {
               | {__typename: 'UrlMetadataEntry'; label: string}
             >;
           }>;
+        }>;
+      };
+};
+
+export type HillpointeSchedulesQueryVariables = Exact<{[key: string]: never}>;
+
+export type HillpointeSchedulesQuery = {
+  __typename: 'Query';
+  workspaceOrError:
+    | {__typename: 'PythonError'}
+    | {
+        __typename: 'Workspace';
+        id: string;
+        locationEntries: Array<{
+          __typename: 'WorkspaceLocationEntry';
+          id: string;
+          locationOrLoadError:
+            | {__typename: 'PythonError'}
+            | {
+                __typename: 'RepositoryLocation';
+                id: string;
+                repositories: Array<{
+                  __typename: 'Repository';
+                  id: string;
+                  schedules: Array<{
+                    __typename: 'Schedule';
+                    id: string;
+                    pipelineName: string;
+                    scheduleState: {
+                      __typename: 'InstigationState';
+                      id: string;
+                      status: Types.InstigationStatus;
+                    };
+                    futureTicks: {
+                      __typename: 'DryRunInstigationTicks';
+                      results: Array<{
+                        __typename: 'DryRunInstigationTick';
+                        timestamp: number | null;
+                      }>;
+                    };
+                  }>;
+                }>;
+              }
+            | null;
         }>;
       };
 };

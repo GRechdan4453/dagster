@@ -626,9 +626,20 @@
   gap: 6px;
   margin-top: 6px;
   font-size: 14px;
+  /* Zero intrinsic height: the feed only fills space the card already has,
+     so it never makes the card taller than its neighbours. */
   flex: 1 1 auto;
-  min-height: 58px;
+  height: 0;
+  min-height: 0;
   overflow: hidden;
+}
+
+/* One-column layouts have no neighbour to match, so give the feed a height. */
+@media (max-width: 768px) {
+  .feed {
+    height: auto;
+    min-height: 140px;
+  }
 }
 
 .feedLine {

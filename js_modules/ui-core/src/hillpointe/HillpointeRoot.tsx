@@ -714,11 +714,27 @@ const SuccessRateCard = () => (
 );
 
 /** One card that switches between the replay and today's timeline. */
+// The card rotates between its views on its own, for wall screens.
+const ROTATE_EVERY_MS = 3 * 60 * 1000;
+
 const TrendCard = ({runs}: {runs: Run[]}) => {
   const [mode, setMode] = useStateWithStorage<TrendMode>(TREND_MODE_KEY, (value) =>
     TREND_MODES.some((m) => m.id === value) ? value : 'replay',
   );
   const current = TREND_MODES.find((m) => m.id === mode) ?? TREND_MODES[0];
+
+  // Advance to the next view every ROTATE_EVERY_MS. Picking a view by hand
+  // restarts the timer from that view.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const index = TREND_MODES.findIndex((m) => m.id === mode);
+      const next = TREND_MODES[(index + 1) % TREND_MODES.length];
+      if (next) {
+        setMode(next.id);
+      }
+    }, ROTATE_EVERY_MS);
+    return () => clearTimeout(timer);
+  }, [mode, setMode]);
   return (
     <div className={clsx(styles.card, mode === 'replay' && styles.cardFlex)}>
       <div className={styles.cardHeader}>

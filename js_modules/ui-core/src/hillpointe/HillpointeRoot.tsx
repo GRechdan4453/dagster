@@ -11,7 +11,7 @@ import {
   Tooltip,
 } from '@dagster-io/ui-components';
 import clsx from 'clsx';
-import {useMemo, useState} from 'react';
+import {ReactNode, useEffect, useMemo, useRef, useState} from 'react';
 import {Link} from 'react-router-dom';
 
 import {gql, useQuery} from '../apollo-client';
@@ -206,13 +206,41 @@ export const HillpointeRoot = () => {
   );
 };
 
-const Tile = ({label, value, sub}: {label: string; value: string; sub?: string}) => (
+const Tile = ({label, value, sub}: {label: string; value: ReactNode; sub?: string}) => (
   <div className={styles.tile}>
     <div className={styles.tileLabel}>{label}</div>
     <div className={styles.tileValue}>{value}</div>
     {sub ? <div className={styles.tileSub}>{sub}</div> : null}
   </div>
 );
+
+const COUNT_UP_MS = 900;
+const percent = (n: number) => `${Math.round(n)}%`;
+const whole = (n: number) => Math.round(n).toLocaleString();
+
+/** A number that eases from its last value to the new one, so tiles tick instead of jump. */
+const CountUp = ({value, format = whole}: {value: number; format?: (n: number) => string}) => {
+  const [shown, setShown] = useState(0);
+  const fromRef = useRef(0);
+  useEffect(() => {
+    const from = fromRef.current;
+    const start = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - start) / COUNT_UP_MS);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setShown(from + (value - from) * eased);
+      if (p < 1) {
+        frame = requestAnimationFrame(tick);
+      } else {
+        fromRef.current = value;
+      }
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value]);
+  return <span className={styles.countUp}>{format(shown)}</span>;
+};
 
 const SummaryTiles = ({runs, statsByRun}: {runs: Run[]; statsByRun: StatsByRun}) => {
   const monthLabel = new Date().toLocaleDateString(undefined, {month: 'long', year: 'numeric'});
@@ -231,10 +259,12 @@ const SummaryTiles = ({runs, statsByRun}: {runs: Run[]; statsByRun: StatsByRun})
 
   return (
     <div className={styles.tiles}>
-      <Tile label="Runs" value={`${runs.length}`} sub={monthLabel} />
+      <Tile label="Runs" value={<CountUp value={runs.length} />} sub={monthLabel} />
       <Tile
         label="Success rate"
-        value={finished ? `${Math.round((counts.success / finished) * 100)}%` : '—'}
+        value={
+          finished ? <CountUp value={(counts.success / finished) * 100} format={percent} /> : '—'
+        }
         sub={[
           `${counts.success} passed`,
           `${counts.failure} failed`,
@@ -242,16 +272,20 @@ const SummaryTiles = ({runs, statsByRun}: {runs: Run[]; statsByRun: StatsByRun})
           `${counts.inProgress + counts.queued} running`,
         ].join(' · ')}
       />
-      <Tile label="Failed" value={`${counts.failure}`} sub={`${counts.canceled} canceled`} />
+      <Tile
+        label="Failed"
+        value={<CountUp value={counts.failure} />}
+        sub={`${counts.canceled} canceled`}
+      />
       <Tile label="Avg duration" value={formatDuration(avg)} sub="Finished runs" />
       <Tile
         label="Active"
-        value={`${counts.inProgress + counts.queued}`}
+        value={<CountUp value={counts.inProgress + counts.queued} />}
         sub={`${counts.inProgress} running, ${counts.queued} queued`}
       />
       <Tile
         label="Materializations"
-        value={materializations === null ? '…' : `${materializations}`}
+        value={materializations === null ? '…' : <CountUp value={materializations} />}
         sub="This month"
       />
     </div>
@@ -654,9 +688,10 @@ const TodayTimeline = ({runs}: {runs: Run[]}) => {
   );
 };
 
-type TrendMode = 'rate' | 'timeline';
+type TrendMode = 'rate' | 'timeline' | 'replay';
 const TREND_MODE_KEY = 'hillpointe-trend-mode';
 const TREND_MODES: {id: TrendMode; label: string; sub: string}[] = [
+  {id: 'replay', label: 'Replay last night', sub: "Last night's runs, sped up"},
   {id: 'rate', label: 'Success rate', sub: `${ROLLING_DAYS}-day rolling, last ${TREND_DAYS} days`},
   {id: 'timeline', label: "Today's runs", sub: 'When each job ran, and for how long'},
 ];
@@ -668,7 +703,7 @@ const TrendCard = ({runs}: {runs: Run[]}) => {
   );
   const current = TREND_MODES.find((m) => m.id === mode) ?? TREND_MODES[0];
   return (
-    <div className={styles.card}>
+    <div className={clsx(styles.card, mode === 'replay' && styles.cardWide)}>
       <div className={styles.cardHeader}>
         <div className={styles.cardTitle}>
           {current?.label}
@@ -682,7 +717,276 @@ const TrendCard = ({runs}: {runs: Run[]}) => {
       </div>
       {mode === 'rate' ? <SuccessRateTrend /> : null}
       {mode === 'timeline' ? <TodayTimeline runs={runs} /> : null}
+      {mode === 'replay' ? <ReplayNight runs={runs} /> : null}
     </div>
+  );
+};
+
+// ---- Replay last night ------------------------------------------------------
+// Pipelines run overnight, so a daytime demo has nothing live to show. Replay
+// walks a clock through last night's recorded runs in REPLAY_SECONDS, feeding
+// the same kind of tiles, bars and feed a live view would. Real data, sped up.
+
+const REPLAY_SECONDS = 45;
+const NIGHT_START_HOUR = 18; // yesterday evening
+const NIGHT_END_HOUR = 10; // this morning
+const REPLAY_FEED_LINES = 8;
+
+type ReplayRun = {
+  runId: string;
+  jobName: string;
+  status: RunStatus;
+  start: number;
+  end: number | null;
+  rows: number;
+};
+
+const nightWindow = () => {
+  const start = startOfDay(1);
+  start.setHours(NIGHT_START_HOUR, 0, 0, 0);
+  const end = startOfDay(0);
+  end.setHours(NIGHT_END_HOUR, 0, 0, 0);
+  return {start: start.getTime() / 1000, end: end.getTime() / 1000};
+};
+
+/** 5,000 -> "5k", 7,500,000 -> "7.5M". */
+const formatRows = (n: number) => {
+  if (n >= 1e6) {
+    const m = n / 1e6;
+    return `${Number.isInteger(m) ? m : m.toFixed(1)}M`;
+  }
+  if (n >= 1e3) {
+    return `${Math.round(n / 1e3)}k`;
+  }
+  return `${n}`;
+};
+
+/** A round step (1, 2 or 5 times a power of ten) giving about three ticks up to max. */
+const niceStep = (max: number) => {
+  const raw = Math.max(1, max / 3);
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const n = raw / mag;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * mag;
+};
+
+const formatClock = (secs: number) =>
+  new Date(secs * 1000).toLocaleTimeString(undefined, {hour: 'numeric', minute: '2-digit'});
+
+const ReplayNight = ({runs}: {runs: Run[]}) => {
+  const [window] = useState(nightWindow);
+  const span = window.end - window.start;
+
+  const rowResult = useQuery<HillpointeRowCountQuery, HillpointeRowCountQueryVariables>(
+    HILLPOINTE_ROW_COUNT_QUERY,
+    {variables: {after: window.start}},
+  );
+  const rowsByRun = useMemo(() => {
+    const map = new Map<string, number>();
+    const result = rowResult.data?.runsOrError;
+    (result?.__typename === 'Runs' ? result.results : []).forEach((run) => {
+      run.assetMaterializations.forEach((m) =>
+        m.metadataEntries.forEach((e) => {
+          if (e.__typename === 'IntMetadataEntry' && e.label === ROW_COUNT_LABEL) {
+            map.set(run.id, (map.get(run.id) ?? 0) + Number(e.intRepr));
+          }
+        }),
+      );
+    });
+    return map;
+  }, [rowResult.data]);
+
+  const night: ReplayRun[] = useMemo(
+    () =>
+      runs
+        .filter((r) => r.startTime && r.startTime >= window.start && r.startTime < window.end)
+        .map((r) => ({
+          runId: r.runId,
+          jobName: r.jobName,
+          status: r.status,
+          start: r.startTime ?? window.start,
+          end: r.endTime,
+          rows: rowsByRun.get(r.runId) ?? 0,
+        }))
+        .sort((a, b) => a.start - b.start),
+    [runs, rowsByRun, window],
+  );
+
+  // Playback clock.
+  const [clock, setClock] = useState(window.start);
+  const [playing, setPlaying] = useState(true);
+  const done = clock >= window.end;
+  useEffect(() => {
+    if (!playing || done) {
+      return;
+    }
+    let frame = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      const dt = (now - last) / 1000;
+      last = now;
+      setClock((c) => Math.min(window.end, c + (dt * span) / REPLAY_SECONDS));
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [playing, done, window.end, span]);
+
+  const finished = night.filter((r) => r.end !== null && r.end <= clock);
+  const passed = finished.filter((r) => r.status === RunStatus.SUCCESS).length;
+  const failedCount = finished.filter((r) => bucketFor(r.status) === 'failure').length;
+  const rows = finished.reduce((sum, r) => sum + r.rows, 0);
+  const running = night.filter((r) => r.start <= clock && (r.end === null || r.end > clock));
+  const current = running[0];
+
+  const hours = Math.round(span / HOUR);
+  const bars = Array.from({length: hours}, (_, i) => {
+    const from = window.start + i * HOUR;
+    const total = finished
+      .filter((r) => r.end !== null && r.end >= from && r.end < from + HOUR)
+      .reduce((sum, r) => sum + r.rows, 0);
+    return {from, total};
+  });
+  // The axis is fixed for the whole night so bars grow against a steady scale.
+  const fullBars = Array.from({length: hours}, (_, i) => {
+    const from = window.start + i * HOUR;
+    return night
+      .filter((r) => r.end !== null && r.end >= from && r.end < from + HOUR)
+      .reduce((sum, r) => sum + r.rows, 0);
+  });
+  const step = niceStep(Math.max(...fullBars, 1));
+  const axisTop = Math.max(step, Math.ceil(Math.max(...fullBars, 1) / step) * step);
+  const ticks = Array.from({length: Math.round(axisTop / step) + 1}, (_, i) => i * step);
+
+  const feed = night
+    .flatMap((r) => [
+      {time: r.start, text: `${r.jobName} started`, tone: styles.feedStart},
+      ...(r.end !== null
+        ? [
+            r.status === RunStatus.SUCCESS
+              ? {
+                  time: r.end,
+                  text: `${r.jobName} succeeded${r.rows ? ` · ${r.rows.toLocaleString()} rows` : ''}`,
+                  tone: styles.feedOk,
+                }
+              : {time: r.end, text: `${r.jobName} ${r.status.toLowerCase()}`, tone: styles.feedBad},
+          ]
+        : []),
+    ])
+    .filter((e) => e.time <= clock)
+    .sort((a, b) => b.time - a.time)
+    .slice(0, REPLAY_FEED_LINES);
+
+  const restart = () => {
+    setClock(window.start);
+    setPlaying(true);
+  };
+
+  if (!night.length) {
+    return <div className={styles.muted}>No runs between 6 PM yesterday and 10 AM today.</div>;
+  }
+
+  return (
+    <>
+      <div className={styles.replayHead}>
+        <span className={styles.replayClock}>{formatClock(clock)}</span>
+        <span className={styles.replayTag}>{done ? 'Night complete' : 'Replaying last night'}</span>
+        <div className={styles.replayButtons}>
+          <Button
+            icon={<Icon name={playing && !done ? 'pause' : 'execute'} />}
+            onClick={() => (done ? restart() : setPlaying((p) => !p))}
+          >
+            {playing && !done ? 'Pause' : 'Play'}
+          </Button>
+          <Button icon={<Icon name="replay" />} onClick={restart}>
+            Restart
+          </Button>
+        </div>
+      </div>
+      <div className={styles.replayProgress}>
+        <div style={{width: `${((clock - window.start) / span) * 100}%`}} />
+      </div>
+      <div className={styles.replayTiles}>
+        <div className={styles.miniTile}>
+          <div className={styles.tileLabel}>Runs finished</div>
+          <div className={styles.jobStatValue}>
+            <CountUp value={finished.length} />
+          </div>
+        </div>
+        <div className={styles.miniTile}>
+          <div className={styles.tileLabel}>Success rate</div>
+          <div className={styles.jobStatValue}>
+            {finished.length ? (
+              <CountUp value={(passed / finished.length) * 100} format={percent} />
+            ) : (
+              '—'
+            )}
+          </div>
+          <div className={styles.tileSub}>
+            {passed} passed · {failedCount} failed
+          </div>
+        </div>
+        <div className={styles.miniTile}>
+          <div className={styles.tileLabel}>Rows loaded</div>
+          <div className={styles.jobStatValue}>
+            <CountUp value={rows} />
+          </div>
+        </div>
+        <div className={styles.miniTile}>
+          <div className={styles.tileLabel}>Running now</div>
+          <div className={styles.jobStatValue}>{current ? current.jobName : 'idle'}</div>
+          <div className={styles.stepTrack}>
+            {current ? (
+              <div
+                className={styles.stepBar}
+                style={{
+                  width: `${Math.min(
+                    100,
+                    ((clock - current.start) / ((current.end ?? window.end) - current.start)) * 100,
+                  )}%`,
+                  background: Colors.accentBlue(),
+                }}
+              />
+            ) : null}
+          </div>
+        </div>
+      </div>
+      <div className={styles.replayGrid}>
+        <div>
+          <div className={styles.cardSub}>Rows loaded per hour</div>
+          <div className={styles.rpPlot}>
+            {ticks.map((t) => (
+              <div key={t} className={styles.rpTick} style={{bottom: `${(t / axisTop) * 100}%`}}>
+                <span>{formatRows(t)}</span>
+              </div>
+            ))}
+            <div className={styles.rpChart}>
+              {bars.map((b, i) => (
+                <div
+                  key={b.from}
+                  className={styles.rpCol}
+                  title={`${formatHour(b.from)}: ${b.total.toLocaleString()} rows`}
+                >
+                  <div className={styles.rpBar} style={{height: `${(b.total / axisTop) * 100}%`}} />
+                  <span className={styles.rpLabel}>{i % 2 === 0 ? formatHour(b.from) : ''}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className={styles.rpAxisTitle}>Time rows were inserted</div>
+        </div>
+        <div>
+          <div className={styles.cardSub}>Activity</div>
+          <div className={styles.feed}>
+            {feed.map((e) => (
+              <div key={`${e.time}-${e.text}`} className={styles.feedLine}>
+                <span className={styles.feedTime}>{formatClock(e.time)}</span>
+                <span className={e.tone}>{e.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
   );
 };
 

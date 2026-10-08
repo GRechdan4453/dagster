@@ -455,3 +455,208 @@
     grid-template-columns: minmax(60px, 90px) 1fr;
   }
 }
+
+/* Count-up numbers keep their width steady while ticking. */
+.countUp {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Bars grow in on first paint. */
+.tlBar,
+.stepBar {
+  animation: growX 0.6s ease-out;
+  transform-origin: left;
+}
+
+@keyframes growX {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* Replay last night */
+.cardWide {
+  grid-column: 1 / -1;
+}
+
+.replayHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.replayClock {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-text-default);
+  font-variant-numeric: tabular-nums;
+}
+
+.replayTag {
+  flex: 1 1 auto;
+  font-size: 12px;
+  color: var(--color-text-light);
+}
+
+.replayButtons {
+  display: flex;
+  gap: 6px;
+}
+
+.replayProgress {
+  height: 4px;
+  margin: 8px 0 12px;
+  border-radius: 2px;
+  background: var(--color-background-lighter);
+  overflow: hidden;
+}
+
+.replayProgress > div {
+  height: 100%;
+  background: var(--color-accent-blue);
+}
+
+.replayTiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.replayTiles .stepTrack {
+  margin-top: 6px;
+  height: 6px;
+}
+
+.replayTiles .stepBar {
+  animation: none;
+  transition: width 0.3s linear;
+}
+
+.replayGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.rpPlot {
+  position: relative;
+  height: 140px;
+  margin-top: 6px;
+  margin-bottom: 18px;
+  padding-left: 44px;
+}
+
+/* Horizontal gridline with its value label in the left gutter. */
+.rpTick {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--color-keyline-default);
+}
+
+.rpTick > span {
+  position: absolute;
+  left: 0;
+  top: -7px;
+  width: 38px;
+  text-align: right;
+  font-size: 10px;
+  color: var(--color-text-lighter);
+  font-variant-numeric: tabular-nums;
+}
+
+.rpChart {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 100%;
+  position: relative;
+}
+
+.rpAxisTitle {
+  margin-top: 4px;
+  font-size: 11px;
+  text-align: center;
+  color: var(--color-text-lighter);
+}
+
+.rpCol {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  position: relative;
+}
+
+.rpBar {
+  width: 100%;
+  border-radius: 2px 2px 0 0;
+  background: var(--color-data-viz-blue);
+  transition: height 0.4s ease-out;
+}
+
+.rpLabel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  font-size: 10px;
+  color: var(--color-text-lighter);
+  white-space: nowrap;
+}
+
+.feed {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 12px;
+  height: 136px;
+  overflow: hidden;
+}
+
+.feedLine {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  animation: fadeDown 0.4s ease-out;
+}
+
+@keyframes fadeDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.feedTime {
+  color: var(--color-text-lighter);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.feedStart {
+  color: var(--color-text-blue);
+}
+
+.feedOk {
+  color: var(--color-text-green);
+}
+
+.feedBad {
+  color: var(--color-text-red);
+}
+
+@media (max-width: 768px) {
+  .replayTiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .replayGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
